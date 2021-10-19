@@ -2,6 +2,15 @@
   "name": "hypervibes-contracts",
   "version": "0.0.0",
   "private": true,
+  "scripts": {
+    "test": "hardhat test",
+    "clean": "rm -rf ./typechain ./cache ./artifacts",
+    "deploy:rinkeby": "hardhat run scripts/deploy.ts --network rinkeby",
+    "verify:rinkeby": "hardhat verify --network rinkeby"
+  },
+  "dependencies": {
+    "@openzeppelin/contracts": "4.3.2"
+  },
   "devDependencies": {
     "@nomiclabs/hardhat-ethers": "^2.0.0",
     "@nomiclabs/hardhat-etherscan": "^2.1.3",
