@@ -15,18 +15,43 @@ struct TokenData {
 }
 
 contract HyperVIBES {
+    // ---
+    // storage
+    // ---
+
+    // tenant ID -> address -> (is admin flag)
     mapping(uint256 => mapping(uint256 => bool)) public tenantAdmins;
 
+    // tenant ID -> address -> (is infuser flag)
     mapping(uint256 => mapping(uint256 => bool)) public tenantInfusers;
 
+    // tenant ID -> configuration
     mapping(uint256 => TenantConfiguration) public tenantConfigs;
 
+    // tenant ID -> nft -> token ID -> token data
     mapping(uint256 => mapping(IERC721 => mapping(uint256 => TokenData)))
         public tokenData;
 
     // ---
+    // admin mutations
+    // ---
+
+    // ---
+    // views
+    // ---
+
+    function name() external pure returns (string memory) {
+        return "HyperVIBES";
+    }
+
+    // ---
     // utils
     // ---
+
+    // returns true if a tenant has been setup
+    function _tenantExists(uint256 tenantId) internal view returns (bool) {
+        return tenantConfigs[tenantId].token != IERC20(address(0));
+    }
 
     // returns true if token exists (and is not burnt)
     function _isTokenValid(IERC721 nft, uint256 tokenId)
