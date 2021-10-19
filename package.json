@@ -1,0 +1,8 @@
+{
+  "name": "hypervibes-contracts",
+  "version": "0.0.0",
+  "private": true,
+  "devDependencies": {
+    "hardhat": "2.6.6"
+  }
+}
