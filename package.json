@@ -4,7 +4,8 @@
   "private": true,
   "scripts": {
     "test": "hardhat test",
-    "clean": "rm -rf ./typechain ./cache ./artifacts",
+    "clean": "hardhat clean && rm -rf ./cache",
+    "build": "hardhat compile",
     "deploy:rinkeby": "hardhat run scripts/deploy.ts --network rinkeby",
     "verify:rinkeby": "hardhat verify --network rinkeby"
   },

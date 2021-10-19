@@ -17,6 +17,18 @@ Install dependencies:
 yarn
 ```
 
+Run unit tests:
+
+```
+npm test
+```
+
+Compile all artifacts (generally will happen automatically before test and deploys):
+
+```
+npm run build
+```
+
 ## Deployment
 
 Copy `.env.example` to `.env` and override the default values before deploying.
@@ -24,7 +36,7 @@ Copy `.env.example` to `.env` and override the default values before deploying.
 Deploy the contract:
 
 ```
-npx hardhat run scripts/deploy.ts --network rinkeby
+npm run deploy:rinkeby
 ```
 
 This will output the deployed contract address in the console.
@@ -32,7 +44,7 @@ This will output the deployed contract address in the console.
 Verify on Etherscan, using the contract address from the previous step.
 
 ```
-npx hardhat verify --network rinkeby $CONTRACT_ADDRESS
+npm run verify:rinkeby -- $CONTRACT_ADDRESS
 ```
 
 Verification may fail if run too quickly after contract deployment.
