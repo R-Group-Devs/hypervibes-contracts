@@ -1,5 +1,7 @@
 # hypervibes-contracts
 
+![tests](https://github.com/R-Group-Devs/hypervibes-contracts/actions/workflows/run-tests.yml/badge.svg)
+
 Smart contracts for the HyperVIBES project.
 
 ## Links
