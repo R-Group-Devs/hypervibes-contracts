@@ -23,7 +23,9 @@ struct CreateTenantInput {
     IERC20 token;
     address[] admins;
     address[] infusers;
-    bool allowPublicInfusion;
+    IERC721[] collections;
+    bool disablePublicInfusion;
+    bool disableOpenInfusion;
 }
 
 // data provided when modifying a tenant
@@ -32,6 +34,8 @@ struct ModifyTenantInput {
     address[] adminsToRemove;
     address[] infusersToAdd;
     address[] infusersToRemove;
+    IERC721[] collectionsToAdd;
+    IERC721[] collectionsToRemove;
 }
 
 // data provided when infusing an nft
@@ -50,13 +54,18 @@ contract HyperVIBES {
     // ---
 
     // tenant ID -> address -> (is admin flag)
-    mapping(uint256 => mapping(address => bool)) public tenantAdmins;
+    mapping(uint256 => mapping(address => bool)) public isAdmin;
 
     // tenant ID -> address -> (is infuser flag)
-    mapping(uint256 => mapping(address => bool)) public tenantInfusers;
+    // 0x0=true => no public infusion
+    mapping(uint256 => mapping(address => bool)) public isInfuser;
+
+    // tenant ID -> erc721 -> (is allowed nft flag)
+    // 0x0=true => no open infusion
+    mapping(uint256 => mapping(IERC721 => bool)) public isAllowedCollection;
 
     // tenant ID -> configuration
-    mapping(uint256 => TenantConfiguration) public tenantConfigs;
+    mapping(uint256 => TenantConfiguration) public tenantConfig;
 
     // tenant ID -> nft -> token ID -> token data
     mapping(uint256 => mapping(IERC721 => mapping(uint256 => TokenData)))
@@ -100,6 +109,18 @@ contract HyperVIBES {
         address indexed admin
     );
 
+    event CollectionAdded(
+        uint256 indexed tenantId,
+        address indexed operator,
+        IERC721 indexed collection
+    );
+
+    event CollectionRemoved(
+        uint256 indexed tenantId,
+        address indexed operator,
+        IERC721 indexed collection
+    );
+
     // ---
     // admin mutations
     // ---
@@ -123,9 +144,19 @@ contract HyperVIBES {
             _addInfuser(tenantId, create.infusers[i]);
         }
 
-        // zero address is sentinel for "public infusions"
-        if (create.allowPublicInfusion) {
+        // register all allowed collections
+        for (uint256 i = 0; i < create.infusers.length; i++) {
+            _addCollection(tenantId, create.collections[i]);
+        }
+
+        // zero address = true => no public infusions
+        if (create.disablePublicInfusion) {
             _addInfuser(tenantId, address(0));
+        }
+
+        // zero address = true => no open infusions
+        if (create.disableOpenInfusion){
+            _addCollection(tenantId, IERC721(address(0)));
         }
 
         emit TenantCreated(
@@ -138,13 +169,33 @@ contract HyperVIBES {
     }
 
     function _addAdmin(uint256 tenantId, address admin) internal {
-        tenantAdmins[tenantId][admin] = true;
+        isAdmin[tenantId][admin] = true;
         emit AdminAdded(tenantId, msg.sender, admin);
     }
 
+    function _removeADmin(uint256 tenantId, address admin) internal {
+        delete isAdmin[tenantId][admin];
+        emit AdminRemoved(tenantId, msg.sender, admin);
+    }
+
     function _addInfuser(uint256 tenantId, address infuser) internal {
-        tenantInfusers[tenantId][infuser] = true;
+        isInfuser[tenantId][infuser] = true;
         emit InfuserAdded(tenantId, msg.sender, infuser);
+    }
+
+    function _removeInfuser(uint256 tenantId, address infuser) internal {
+        delete isInfuser[tenantId][infuser];
+        emit InfuserRemoved(tenantId, msg.sender, infuser);
+    }
+
+    function _addCollection(uint256 tenantId, IERC721 collection) internal {
+        isAllowedCollection[tenantId][collection] = true;
+        emit CollectionAdded(tenantId, msg.sender, collection);
+    }
+
+    function _removeCollection(uint256 tenantId, IERC721 collection) internal {
+        delete isAllowedCollection[tenantId][collection];
+        emit CollectionRemoved(tenantId, msg.sender, collection);
     }
 
     // ---
@@ -161,7 +212,7 @@ contract HyperVIBES {
 
     // returns true if a tenant has been setup
     function _tenantExists(uint256 tenantId) internal view returns (bool) {
-        return tenantConfigs[tenantId].token != IERC20(address(0));
+        return tenantConfig[tenantId].token != IERC20(address(0));
     }
 
     // returns true if token exists (and is not burnt)
