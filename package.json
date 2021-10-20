@@ -6,8 +6,8 @@
     "test": "hardhat test",
     "clean": "hardhat clean && rm -rf ./cache",
     "build": "hardhat compile",
-    "deploy:rinkeby": "hardhat run scripts/deploy.ts --network rinkeby",
-    "verify:rinkeby": "hardhat verify --network rinkeby"
+    "deploy:ropsten": "hardhat run scripts/deploy.ts --network ropsten",
+    "verify:ropsten": "hardhat verify --network ropsten"
   },
   "dependencies": {
     "@openzeppelin/contracts": "4.3.2"

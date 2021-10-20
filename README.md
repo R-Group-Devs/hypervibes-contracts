@@ -38,7 +38,7 @@ Copy `.env.example` to `.env` and override the default values before deploying.
 Deploy the contract:
 
 ```
-npm run deploy:rinkeby
+npm run deploy:ropsten
 ```
 
 This will output the deployed contract address in the console.
@@ -46,7 +46,7 @@ This will output the deployed contract address in the console.
 Verify on Etherscan, using the contract address from the previous step.
 
 ```
-npm run verify:rinkeby -- $CONTRACT_ADDRESS
+npm run verify:ropsten -- $CONTRACT_ADDRESS
 ```
 
 Verification may fail if run too quickly after contract deployment.
