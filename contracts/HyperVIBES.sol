@@ -24,8 +24,6 @@ struct CreateTenantInput {
     address[] admins;
     address[] infusers;
     IERC721[] collections;
-    bool disablePublicInfusion;
-    bool disableOpenInfusion;
 }
 
 // data provided when modifying a tenant
@@ -40,7 +38,8 @@ struct ModifyTenantInput {
 
 // data provided when infusing an nft
 struct InfuseInput {
-    IERC721 nft;
+    uint256 tenantId;
+    IERC721 collection;
     uint256 tokenId;
     address infuser;
     uint256 dailyRate;
@@ -62,7 +61,7 @@ contract HyperVIBES {
 
     // tenant ID -> erc721 -> (is allowed nft flag)
     // 0x0=true => no open infusion
-    mapping(uint256 => mapping(IERC721 => bool)) public isAllowedCollection;
+    mapping(uint256 => mapping(IERC721 => bool)) public isCollection;
 
     // tenant ID -> configuration
     mapping(uint256 => TenantConfiguration) public tenantConfig;
@@ -79,46 +78,34 @@ contract HyperVIBES {
 
     event TenantCreated(
         uint256 indexed tenantId,
-        address indexed operator,
         IERC20 indexed token,
         string name,
         string description
     );
 
-    event AdminAdded(
-        uint256 indexed tenantId,
-        address indexed operator,
-        address indexed admin
-    );
+    event AdminAdded(uint256 indexed tenantId, address indexed admin);
 
-    event AdminRemoved(
-        uint256 indexed tenantId,
-        address indexed operator,
-        address indexed admin
-    );
+    event AdminRemoved(uint256 indexed tenantId, address indexed admin);
 
-    event InfuserAdded(
-        uint256 indexed tenantId,
-        address indexed operator,
-        address indexed admin
-    );
+    event InfuserAdded(uint256 indexed tenantId, address indexed admin);
 
-    event InfuserRemoved(
-        uint256 indexed tenantId,
-        address indexed operator,
-        address indexed admin
-    );
+    event InfuserRemoved(uint256 indexed tenantId, address indexed admin);
 
-    event CollectionAdded(
-        uint256 indexed tenantId,
-        address indexed operator,
-        IERC721 indexed collection
-    );
+    event CollectionAdded(uint256 indexed tenantId, IERC721 indexed collection);
 
     event CollectionRemoved(
         uint256 indexed tenantId,
-        address indexed operator,
         IERC721 indexed collection
+    );
+
+    event Infused(
+        uint256 indexed tenantId,
+        IERC721 indexed collection,
+        uint256 indexed tokenId,
+        address infuser,
+        uint256 amount,
+        uint256 dailyRate,
+        string comment
     );
 
     // ---
@@ -127,75 +114,162 @@ contract HyperVIBES {
 
     // setup a new tenant
     function createTenant(CreateTenantInput memory create) external {
-        require(bytes(create.name).length > 0, "invalid name");
         require(create.token != IERC20(address(0)), "invalid token");
+
         uint256 tenantId = nextTenantId++;
-
-        // invoker always starts as admin
-        _addAdmin(tenantId, msg.sender);
-
-        // add additional admins
-        for (uint256 i = 0; i < create.admins.length; i++) {
-            _addAdmin(tenantId, create.admins[i]);
-        }
-
-        // register all infusers
-        for (uint256 i = 0; i < create.infusers.length; i++) {
-            _addInfuser(tenantId, create.infusers[i]);
-        }
-
-        // register all allowed collections
-        for (uint256 i = 0; i < create.infusers.length; i++) {
-            _addCollection(tenantId, create.collections[i]);
-        }
-
-        // zero address = true => no public infusions
-        if (create.disablePublicInfusion) {
-            _addInfuser(tenantId, address(0));
-        }
-
-        // zero address = true => no open infusions
-        if (create.disableOpenInfusion){
-            _addCollection(tenantId, IERC721(address(0)));
-        }
+        tenantConfig[tenantId] = TenantConfiguration({token: create.token});
 
         emit TenantCreated(
             tenantId,
-            msg.sender,
             create.token,
             create.name,
             create.description
         );
+
+        for (uint256 i = 0; i < create.admins.length; i++) {
+            _addAdmin(tenantId, create.admins[i]);
+        }
+
+        for (uint256 i = 0; i < create.infusers.length; i++) {
+            _addInfuser(tenantId, create.infusers[i]);
+        }
+
+        for (uint256 i = 0; i < create.collections.length; i++) {
+            _addCollection(tenantId, create.collections[i]);
+        }
+    }
+
+    // update mutable configuration for a tenant
+    function modifyTenant(uint256 tenantId, ModifyTenantInput memory input)
+        public
+    {
+        require(isAdmin[tenantId][msg.sender], "not tenant admin");
+
+        // adds
+
+        for (uint256 i = 0; i < input.adminsToAdd.length; i++) {
+            _addAdmin(tenantId, input.adminsToAdd[i]);
+        }
+
+        for (uint256 i = 0; i < input.infusersToAdd.length; i++) {
+            _addInfuser(tenantId, input.infusersToAdd[i]);
+        }
+
+        for (uint256 i = 0; i < input.collectionsToAdd.length; i++) {
+            _addCollection(tenantId, input.collectionsToAdd[i]);
+        }
+
+        // removes
+
+        for (uint256 i = 0; i < input.adminsToRemove.length; i++) {
+            _removeAdmin(tenantId, input.adminsToRemove[i]);
+        }
+
+        for (uint256 i = 0; i < input.infusersToRemove.length; i++) {
+            _removeInfuser(tenantId, input.infusersToRemove[i]);
+        }
+
+        for (uint256 i = 0; i < input.collectionsToRemove.length; i++) {
+            _addCollection(tenantId, input.collectionsToRemove[i]);
+        }
     }
 
     function _addAdmin(uint256 tenantId, address admin) internal {
         isAdmin[tenantId][admin] = true;
-        emit AdminAdded(tenantId, msg.sender, admin);
+        emit AdminAdded(tenantId, admin);
     }
 
-    function _removeADmin(uint256 tenantId, address admin) internal {
+    function _removeAdmin(uint256 tenantId, address admin) internal {
         delete isAdmin[tenantId][admin];
-        emit AdminRemoved(tenantId, msg.sender, admin);
+        emit AdminRemoved(tenantId, admin);
     }
 
     function _addInfuser(uint256 tenantId, address infuser) internal {
         isInfuser[tenantId][infuser] = true;
-        emit InfuserAdded(tenantId, msg.sender, infuser);
+        emit InfuserAdded(tenantId, infuser);
     }
 
     function _removeInfuser(uint256 tenantId, address infuser) internal {
         delete isInfuser[tenantId][infuser];
-        emit InfuserRemoved(tenantId, msg.sender, infuser);
+        emit InfuserRemoved(tenantId, infuser);
     }
 
     function _addCollection(uint256 tenantId, IERC721 collection) internal {
-        isAllowedCollection[tenantId][collection] = true;
-        emit CollectionAdded(tenantId, msg.sender, collection);
+        isCollection[tenantId][collection] = true;
+        emit CollectionAdded(tenantId, collection);
     }
 
     function _removeCollection(uint256 tenantId, IERC721 collection) internal {
-        delete isAllowedCollection[tenantId][collection];
-        emit CollectionRemoved(tenantId, msg.sender, collection);
+        delete isCollection[tenantId][collection];
+        emit CollectionRemoved(tenantId, collection);
+    }
+
+    // ---
+    // infuser mutations
+    // ---
+
+    function infuse(InfuseInput memory input) external {
+        require(
+            isAllowedToInfuse(input.tenantId, msg.sender, input.infuser),
+            "infusion not allowed"
+        );
+        require(_isTokenValid(input.collection, input.tokenId), "invalid token");
+
+        TokenData storage data = tokenData[input.tenantId][input.collection][
+            input.tokenId
+        ];
+
+        // init storage or assert that daily rate is the same
+        if (data.lastClaimAt != 0) {
+            // if already infused, assert same rate
+            require(
+                data.dailyRate == input.dailyRate,
+                "daily rate is immutable"
+            );
+        } else {
+            // else write info to storage
+            data.dailyRate = input.dailyRate;
+            data.lastClaimAt = block.timestamp;
+        }
+
+        // infuse
+        tenantConfig[input.tenantId].token.transferFrom(
+            msg.sender,
+            address(this),
+            input.amount
+        );
+        data.balance += input.amount;
+
+        emit Infused(
+            input.tenantId,
+            input.collection,
+            input.tokenId,
+            input.infuser,
+            input.amount,
+            input.dailyRate,
+            input.comment
+        );
+    }
+
+    function isAllowedToInfuse(
+        uint256 tenantId,
+        address operator,
+        address infuser
+    ) public view returns (bool) {
+        // actual infuser -> yes
+        if (isInfuser[tenantId][operator]) {
+            return true;
+        }
+        // no public infusion allowed -> no
+        else if (isInfuser[tenantId][address(0)]) {
+            return false;
+        }
+        // else public is allowed if coming from infuser
+        else if (operator == infuser) {
+            return true;
+        }
+
+        return false;
     }
 
     // ---
