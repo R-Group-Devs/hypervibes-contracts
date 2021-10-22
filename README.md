@@ -22,13 +22,19 @@ yarn
 Run unit tests:
 
 ```
-npm test
+yarn test
+```
+
+Run unit tests showing gas usage by function and deploy costs:
+
+```
+REPORT_GAS=1 yarn test
 ```
 
 Compile all artifacts (generally will happen automatically before test and deploys):
 
 ```
-npm run build
+yarn build
 ```
 
 ## Deployment
@@ -38,7 +44,7 @@ Copy `.env.example` to `.env` and override the default values before deploying.
 Deploy the contract:
 
 ```
-npm run deploy:ropsten
+yarn deploy:ropsten
 ```
 
 This will output the deployed contract address in the console.
@@ -46,7 +52,7 @@ This will output the deployed contract address in the console.
 Verify on Etherscan, using the contract address from the previous step.
 
 ```
-npm run verify:ropsten -- $CONTRACT_ADDRESS
+yarn verify:ropsten -- $CONTRACT_ADDRESS
 ```
 
 Verification may fail if run too quickly after contract deployment.
