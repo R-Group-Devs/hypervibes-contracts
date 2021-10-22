@@ -47,6 +47,14 @@ struct InfuseInput {
     string comment;
 }
 
+// data provided when claiming from an infused nft
+struct ClaimInput {
+    uint256 tenantId;
+    IERC721 collection;
+    uint256 tokenId;
+    uint256 amount;
+}
+
 contract HyperVIBES {
     // ---
     // storage
@@ -106,6 +114,13 @@ contract HyperVIBES {
         uint256 amount,
         uint256 dailyRate,
         string comment
+    );
+
+     event Claimed(
+        uint256 indexed tenantId,
+        IERC721 indexed collection,
+        uint256 indexed tokenId,
+        uint256 amount
     );
 
     // ---
@@ -210,10 +225,13 @@ contract HyperVIBES {
 
     function infuse(InfuseInput memory input) external {
         require(
-            isAllowedToInfuse(input.tenantId, msg.sender, input.infuser),
+            _isAllowedToInfuse(input.tenantId, msg.sender, input.infuser),
             "infusion not allowed"
         );
-        require(_isTokenValid(input.collection, input.tokenId), "invalid token");
+        require(
+            _isTokenValid(input.collection, input.tokenId),
+            "invalid token"
+        );
 
         TokenData storage data = tokenData[input.tenantId][input.collection][
             input.tokenId
@@ -231,6 +249,8 @@ contract HyperVIBES {
             data.dailyRate = input.dailyRate;
             data.lastClaimAt = block.timestamp;
         }
+
+        // TODO: constraints
 
         // infuse
         tenantConfig[input.tenantId].token.transferFrom(
@@ -251,11 +271,12 @@ contract HyperVIBES {
         );
     }
 
-    function isAllowedToInfuse(
+    // determines if a given tenant/operator/infuser combo is allowed
+    function _isAllowedToInfuse(
         uint256 tenantId,
         address operator,
         address infuser
-    ) public view returns (bool) {
+    ) internal view returns (bool) {
         // actual infuser -> yes
         if (isInfuser[tenantId][operator]) {
             return true;
@@ -270,6 +291,64 @@ contract HyperVIBES {
         }
 
         return false;
+    }
+
+    // ---
+    // claimer mutations
+    // ---
+
+    function claim(ClaimInput memory input) public {
+        require(
+            _isApprovedOrOwner(input.collection, input.tokenId, msg.sender),
+            "not owner or approved"
+        );
+
+        // compute how much we can claim, only pay attention to amount if its less
+        // than available
+        uint256 availableToClaim = _claimable(
+            input.tenantId,
+            input.collection,
+            input.tokenId
+        );
+        uint256 toClaim = input.amount < availableToClaim
+            ? input.amount
+            : availableToClaim;
+        require(toClaim > 0, "nothing to claim");
+
+        TokenData storage data = tokenData[input.tenantId][input.collection][
+            input.tokenId
+        ];
+
+        // claim only as far up as we need to get our amount... basically "advances"
+        // the lastClaim timestamp the exact amount needed to provide the amount
+        // claim at = last + (to claim / rate) * 1 day, rewritten for div last
+        uint256 claimAt = data.lastClaimAt +
+            (toClaim * 1 days) /
+            data.dailyRate;
+
+        // update balances and execute ERC-20 transfer
+        data.balance -= toClaim;
+        data.lastClaimAt = claimAt;
+        tenantConfig[input.tenantId].token.transfer(msg.sender, toClaim);
+
+        emit Claimed(input.tenantId, input.collection, input.tokenId, toClaim);
+    }
+
+    // compute claimable tokens, reverts for invalid tokens
+    function _claimable(
+        uint256 tenantId,
+        IERC721 collection,
+        uint256 tokenId
+    ) internal view returns (uint256) {
+        TokenData memory data = tokenData[tenantId][collection][tokenId];
+        require(data.lastClaimAt != 0, "token has not been infused");
+        require(_isTokenValid(collection, tokenId), "invalid token");
+
+        uint256 secondsToClaim = block.timestamp - data.lastClaimAt;
+        uint256 toClaim = (secondsToClaim * data.dailyRate) / 1 days;
+
+        // clamp to token balance
+        return toClaim > data.balance ? data.balance : toClaim;
     }
 
     // ---
