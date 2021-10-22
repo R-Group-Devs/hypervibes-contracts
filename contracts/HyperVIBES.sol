@@ -4,11 +4,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-// required information per-tenant
-struct TenantConfiguration {
-    IERC20 token;
-}
-
 // data stored for-each infused token
 struct TokenData {
     uint256 dailyRate;
@@ -28,6 +23,7 @@ struct CreateTenantInput {
 
 // data provided when modifying a tenant
 struct ModifyTenantInput {
+    uint256 tenantId;
     address[] adminsToAdd;
     address[] adminsToRemove;
     address[] infusersToAdd;
@@ -72,7 +68,7 @@ contract HyperVIBES {
     mapping(uint256 => mapping(IERC721 => bool)) public isCollection;
 
     // tenant ID -> configuration
-    mapping(uint256 => TenantConfiguration) public tenantConfig;
+    mapping(uint256 => IERC20) public tenantToken;
 
     // tenant ID -> nft -> token ID -> token data
     mapping(uint256 => mapping(IERC721 => mapping(uint256 => TokenData)))
@@ -132,7 +128,7 @@ contract HyperVIBES {
         require(create.token != IERC20(address(0)), "invalid token");
 
         uint256 tenantId = nextTenantId++;
-        tenantConfig[tenantId] = TenantConfiguration({token: create.token});
+        tenantToken[tenantId] = create.token;
 
         emit TenantCreated(
             tenantId,
@@ -140,6 +136,9 @@ contract HyperVIBES {
             create.name,
             create.description
         );
+
+        // creator always added as an admin
+        _addAdmin(tenantId, msg.sender);
 
         for (uint256 i = 0; i < create.admins.length; i++) {
             _addAdmin(tenantId, create.admins[i]);
@@ -155,37 +154,37 @@ contract HyperVIBES {
     }
 
     // update mutable configuration for a tenant
-    function modifyTenant(uint256 tenantId, ModifyTenantInput memory input)
+    function modifyTenant(ModifyTenantInput memory input)
         public
     {
-        require(isAdmin[tenantId][msg.sender], "not tenant admin");
+        require(isAdmin[input.tenantId][msg.sender], "not tenant admin");
 
         // adds
 
         for (uint256 i = 0; i < input.adminsToAdd.length; i++) {
-            _addAdmin(tenantId, input.adminsToAdd[i]);
+            _addAdmin(input.tenantId, input.adminsToAdd[i]);
         }
 
         for (uint256 i = 0; i < input.infusersToAdd.length; i++) {
-            _addInfuser(tenantId, input.infusersToAdd[i]);
+            _addInfuser(input.tenantId, input.infusersToAdd[i]);
         }
 
         for (uint256 i = 0; i < input.collectionsToAdd.length; i++) {
-            _addCollection(tenantId, input.collectionsToAdd[i]);
+            _addCollection(input.tenantId, input.collectionsToAdd[i]);
         }
 
         // removes
 
         for (uint256 i = 0; i < input.adminsToRemove.length; i++) {
-            _removeAdmin(tenantId, input.adminsToRemove[i]);
+            _removeAdmin(input.tenantId, input.adminsToRemove[i]);
         }
 
         for (uint256 i = 0; i < input.infusersToRemove.length; i++) {
-            _removeInfuser(tenantId, input.infusersToRemove[i]);
+            _removeInfuser(input.tenantId, input.infusersToRemove[i]);
         }
 
         for (uint256 i = 0; i < input.collectionsToRemove.length; i++) {
-            _addCollection(tenantId, input.collectionsToRemove[i]);
+            _removeCollection(input.tenantId, input.collectionsToRemove[i]);
         }
     }
 
@@ -253,7 +252,7 @@ contract HyperVIBES {
         // TODO: constraints
 
         // infuse
-        tenantConfig[input.tenantId].token.transferFrom(
+        tenantToken[input.tenantId].transferFrom(
             msg.sender,
             address(this),
             input.amount
@@ -329,7 +328,7 @@ contract HyperVIBES {
         // update balances and execute ERC-20 transfer
         data.balance -= toClaim;
         data.lastClaimAt = claimAt;
-        tenantConfig[input.tenantId].token.transfer(msg.sender, toClaim);
+        tenantToken[input.tenantId].transfer(msg.sender, toClaim);
 
         emit Claimed(input.tenantId, input.collection, input.tokenId, toClaim);
     }
@@ -365,7 +364,7 @@ contract HyperVIBES {
 
     // returns true if a tenant has been setup
     function _tenantExists(uint256 tenantId) internal view returns (bool) {
-        return tenantConfig[tenantId].token != IERC20(address(0));
+        return tenantToken[tenantId] != IERC20(address(0));
     }
 
     // returns true if token exists (and is not burnt)
