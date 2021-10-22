@@ -11,6 +11,14 @@ Smart contracts for the HyperVIBES project.
 * [Frontend repo](https://github.com/R-Group-Devs/hypervibes-frontend)
 * [VIBES Wellspring Contract](https://github.com/sickvibes/vibes-contracts/blob/main/contracts/NFTTokenFaucetV3.sol)
 
+## Current Deployments
+
+| network | address |
+| --- | --- |
+| mainnet | n/a
+| polygon | n/a
+| ropsten | [`0x03741151f5E6CF9736455C0CBCD512bfA8529C93`](https://ropsten.etherscan.io/address/0x03741151f5E6CF9736455C0CBCD512bfA8529C93)
+
 ## Development
 
 Install dependencies:
@@ -52,7 +60,7 @@ This will output the deployed contract address in the console.
 Verify on Etherscan, using the contract address from the previous step.
 
 ```
-yarn verify:ropsten -- $CONTRACT_ADDRESS
+yarn verify:ropsten $CONTRACT_ADDRESS
 ```
 
 Verification may fail if run too quickly after contract deployment.
