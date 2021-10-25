@@ -137,9 +137,6 @@ contract HyperVIBES {
             create.description
         );
 
-        // creator always added as an admin
-        _addAdmin(tenantId, msg.sender);
-
         for (uint256 i = 0; i < create.admins.length; i++) {
             _addAdmin(tenantId, create.admins[i]);
         }
