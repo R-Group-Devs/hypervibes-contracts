@@ -74,6 +74,27 @@ describe("HyperVIBES", function () {
       await hv.createTenant(createTenant());
       expect((await hv.tenantConfig("1")).token).equals(token.address);
     });
+    it("should set constraints when creating a tenant", async () => {
+      const constraints = {
+        // creating non-zero values for all to exercise a worst-case storage
+        // usage for gas stats
+        disableMultiInfuse: true,
+        imaxDailyRate: 500,
+        imaxInfusionAmount: 500,
+        imaxTokenBalance: 1000,
+        minDailyRate: 50,
+        minInfusionAmount: 500,
+        requireCollectionWhitelist: true,
+        requireInfusionWhitelist: true,
+        requireOwnedNft: true,
+      };
+      await hv.createTenant({
+        ...createTenant(),
+        config: { token: token.address, constraints },
+      });
+      const view = await hv.tenantConfig("1");
+      expect(view.constraints.imaxDailyRate).to.equal(500);
+    });
     it("should revert if attempting to modify a tenant as a non-admin", async () => {
       await hv.createTenant(createTenant());
       await expect(hv.modifyTenant(modifyTenant())).to.be.revertedWith(
