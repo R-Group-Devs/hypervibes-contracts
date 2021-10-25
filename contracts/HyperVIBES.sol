@@ -4,6 +4,8 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
+uint256 constant INFINITY = 2 ** 256 - 1;
+
 // data stored for-each infused token
 struct TokenData {
     uint256 dailyRate;
@@ -236,10 +238,6 @@ contract HyperVIBES {
 
     function infuse(InfuseInput memory input) external {
         require(
-            _isAllowedToInfuse(input.tenantId, msg.sender, input.infuser),
-            "infusion not allowed"
-        );
-        require(
             _isTokenValid(input.collection, input.tokenId),
             "invalid token"
         );
@@ -248,6 +246,15 @@ contract HyperVIBES {
             input.tokenId
         ];
 
+        TenantConfig memory tenant = tenantConfig[input.tenantId];
+
+        require(input.amount >= tenant.constraints.minInfusionAmount, "amount too low");
+        require(input.amount <= INFINITY - tenant.constraints.imaxInfusionAmount, "amount too high");
+
+        // TODO: check require owned
+        // TODO: check infusor whitelist
+        // TODO: check collection whitelist
+
         // init storage or assert that daily rate is the same
         if (data.lastClaimAt != 0) {
             // if already infused, assert same rate
@@ -255,20 +262,24 @@ contract HyperVIBES {
                 data.dailyRate == input.dailyRate,
                 "daily rate is immutable"
             );
+            require(!tenant.constraints.disableMultiInfuse, "multi infuse disabled");
+            // intentionally ommitting checks to min/max daily rate -- its
+            // possible tenant configuration has changed since the initial
+            // infusion, we don't want to prevent "topping off" the NFT if this
+            // is the case
         } else {
             // else write info to storage
+            require(input.dailyRate >= tenant.constraints.minDailyRate, "daily rate too low");
+            require(input.dailyRate <= INFINITY - tenant.constraints.imaxDailyRate, "daily rate too high");
             data.dailyRate = input.dailyRate;
             data.lastClaimAt = block.timestamp;
         }
 
-        // TODO: constraints
+        // TODO: clamp amount based on balance and max balance
 
         // infuse
-        tenantConfig[input.tenantId].token.transferFrom(
-            msg.sender,
-            address(this),
-            input.amount
-        );
+        // TODO: reentrancy risk!!!!!
+        tenant.token.transferFrom(msg.sender, address(this), input.amount);
         data.balance += input.amount;
 
         emit Infused(
@@ -340,6 +351,7 @@ contract HyperVIBES {
         // update balances and execute ERC-20 transfer
         data.balance -= toClaim;
         data.lastClaimAt = claimAt;
+        // TODO: reentrancy risk!!!!!
         tenantConfig[input.tenantId].token.transfer(msg.sender, toClaim);
 
         emit Claimed(input.tenantId, input.collection, input.tokenId, toClaim);
