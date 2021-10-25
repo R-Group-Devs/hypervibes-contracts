@@ -17,7 +17,7 @@ Smart contracts for the HyperVIBES project.
 | --- | --- |
 | mainnet | n/a
 | polygon | n/a
-| ropsten | [`0x03741151f5E6CF9736455C0CBCD512bfA8529C93`](https://ropsten.etherscan.io/address/0x03741151f5E6CF9736455C0CBCD512bfA8529C93)
+| ropsten | [`0xD23C25Eb1bAD8b1de60cBD313c09209055fD74c0`](https://ropsten.etherscan.io/address/0xD23C25Eb1bAD8b1de60cBD313c09209055fD74c0)
 
 ## Development
 
@@ -39,7 +39,7 @@ Run unit tests showing gas usage by function and deploy costs:
 REPORT_GAS=1 yarn test
 ```
 
-Compile all artifacts (generally will happen automatically before test and deploys):
+Compile all artifacts and generate typechain types:
 
 ```
 yarn build
@@ -52,7 +52,7 @@ Copy `.env.example` to `.env` and override the default values before deploying.
 Deploy the contract:
 
 ```
-yarn deploy:ropsten
+yarn deploy --network ropsten
 ```
 
 This will output the deployed contract address in the console.
@@ -60,7 +60,7 @@ This will output the deployed contract address in the console.
 Verify on Etherscan, using the contract address from the previous step.
 
 ```
-yarn verify:ropsten $CONTRACT_ADDRESS
+yarn verify --network ropsten $CONTRACT_ADDRESS
 ```
 
 Verification may fail if run too quickly after contract deployment.

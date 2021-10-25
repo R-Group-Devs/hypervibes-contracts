@@ -9,8 +9,8 @@
     "test": "hardhat test",
     "clean": "hardhat clean && rm -rf ./cache",
     "build": "hardhat compile",
-    "deploy:ropsten": "hardhat run scripts/deploy.ts --network ropsten",
-    "verify:ropsten": "hardhat verify --network ropsten"
+    "deploy": "hardhat run scripts/deploy.ts",
+    "verify": "hardhat verify"
   },
   "dependencies": {
     "@openzeppelin/contracts": "4.3.2"
