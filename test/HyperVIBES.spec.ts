@@ -30,14 +30,31 @@ describe("HyperVIBES", function () {
       [a0, a1, a2, a3] = accounts.map((a) => a.address);
     });
 
-    const tenantConfig = () => {
+    const tenantConstraints = () => {
+      return {
+        minDailyRate: 0,
+        imaxDailyRate: 0,
+        minInfusionAmount: 0,
+        imaxInfusionAmount: 0,
+        imaxTokenBalance: 0,
+        requireOwnedNft: false,
+        disableMultiInfuse: false,
+        requireInfusionWhitelist: false,
+        requireCollectionWhitelist: false,
+      };
+    };
+
+    const createTenant = () => {
       return {
         name: "test tenant",
         description: "description",
         admins: [],
         collections: [],
         infusers: [],
-        token: token.address,
+        config: {
+          token: token.address,
+          constraints: tenantConstraints(),
+        },
       };
     };
 
@@ -54,11 +71,11 @@ describe("HyperVIBES", function () {
     };
 
     it("should create a tenant", async () => {
-      await hv.createTenant(tenantConfig());
-      expect(await hv.tenantToken("1")).equals(token.address);
+      await hv.createTenant(createTenant());
+      expect((await hv.tenantConfig("1")).token).equals(token.address);
     });
     it("should revert if attempting to modify a tenant as a non-admin", async () => {
-      await hv.createTenant(tenantConfig());
+      await hv.createTenant(createTenant());
       await expect(hv.modifyTenant(modifyTenant())).to.be.revertedWith(
         "not tenant admin"
       );
@@ -66,25 +83,28 @@ describe("HyperVIBES", function () {
     it("should revert if providing zero address for tenant erc20", async () => {
       await expect(
         hv.createTenant({
-          ...tenantConfig(),
-          token: ethers.constants.AddressZero,
+          ...createTenant(),
+          config: {
+            ...createTenant().config,
+            token: ethers.constants.AddressZero,
+          },
         })
       ).to.be.revertedWith("invalid token");
     });
     it("should autoincrement tenant id", async () => {
-      await hv.createTenant(tenantConfig());
-      await hv.createTenant(tenantConfig());
-      expect(await hv.tenantToken("1")).to.equal(token.address);
-      expect(await hv.tenantToken("2")).to.equal(token.address);
+      await hv.createTenant(createTenant());
+      await hv.createTenant(createTenant());
+      expect((await hv.tenantConfig("1")).token).equals(token.address);
+      expect((await hv.tenantConfig("2")).token).equals(token.address);
     });
     it("should emit a TenantCreated event on tenant create", async () => {
-      expect(await hv.createTenant(tenantConfig()))
+      await expect(hv.createTenant(createTenant()))
         .to.emit(hv, "TenantCreated")
-        .withArgs("1", token.address, "test tenant", "description");
+        .withArgs("1", "test tenant", "description");
     });
     it("should add initial admins to tenant", async () => {
       await hv.createTenant({
-        ...tenantConfig(),
+        ...createTenant(),
         admins: [a1, a2],
       });
 
@@ -94,7 +114,7 @@ describe("HyperVIBES", function () {
     });
     it("should add initial infusers to tenant", async () => {
       await hv.createTenant({
-        ...tenantConfig(),
+        ...createTenant(),
         infusers: [a1, a2],
       });
 
@@ -104,13 +124,13 @@ describe("HyperVIBES", function () {
     });
     it("should add initial collections to tenant", async () => {
       await hv.createTenant({
-        ...tenantConfig(),
+        ...createTenant(),
         collections: [collection.address],
       });
       expect(await hv.isCollection("1", collection.address)).to.equal(true);
     });
     it("should add admins via modifyTenant", async () => {
-      await hv.createTenant({ ...tenantConfig(), admins: [a0] });
+      await hv.createTenant({ ...createTenant(), admins: [a0] });
       await hv.modifyTenant({
         ...modifyTenant(),
         adminsToAdd: [a1],
@@ -118,7 +138,7 @@ describe("HyperVIBES", function () {
       expect(await hv.isAdmin("1", a1)).to.equal(true);
     });
     it("should remove admins via modifyTenant", async () => {
-      await hv.createTenant({ ...tenantConfig(), admins: [a0] });
+      await hv.createTenant({ ...createTenant(), admins: [a0] });
       await hv.modifyTenant({
         ...modifyTenant(),
         adminsToRemove: [a0],
@@ -126,7 +146,7 @@ describe("HyperVIBES", function () {
       expect(await hv.isAdmin("1", a0)).to.equal(false);
     });
     it("should add infusers via modifyTenant", async () => {
-      await hv.createTenant({ ...tenantConfig(), admins: [a0] });
+      await hv.createTenant({ ...createTenant(), admins: [a0] });
       await hv.modifyTenant({
         ...modifyTenant(),
         infusersToAdd: [a1],
@@ -135,7 +155,7 @@ describe("HyperVIBES", function () {
     });
     it("should remove infusers via modifyTenant", async () => {
       await hv.createTenant({
-        ...tenantConfig(),
+        ...createTenant(),
         admins: [a0],
         infusers: [a1],
       });
@@ -147,7 +167,7 @@ describe("HyperVIBES", function () {
       expect(await hv.isInfuser("1", a0)).to.equal(false);
     });
     it("should add collections via modifyTenant", async () => {
-      await hv.createTenant({ ...tenantConfig(), admins: [a0] });
+      await hv.createTenant({ ...createTenant(), admins: [a0] });
       await hv.modifyTenant({
         ...modifyTenant(),
         collectionsToAdd: [collection.address],
@@ -156,7 +176,7 @@ describe("HyperVIBES", function () {
     });
     it("should remove collections via modifyTenant", async () => {
       await hv.createTenant({
-        ...tenantConfig(),
+        ...createTenant(),
         admins: [a0],
         collections: [collection.address],
       });
@@ -168,53 +188,35 @@ describe("HyperVIBES", function () {
       expect(await hv.isCollection("1", collection.address)).to.equal(false);
     });
     it("should emit an AdminAdded event on modifyTenant", async () => {
-      await hv.createTenant({ ...tenantConfig(), admins: [a0] });
-      expect(
-        await hv.modifyTenant({
-          ...modifyTenant(),
-          adminsToAdd: [a1],
-        })
-      )
+      await hv.createTenant({ ...createTenant(), admins: [a0] });
+      await expect(hv.modifyTenant({ ...modifyTenant(), adminsToAdd: [a1] }))
         .to.emit(hv, "AdminAdded")
         .withArgs("1", a1);
     });
     it("should emit an AdminRemoved event on modifyTenant", async () => {
-      await hv.createTenant({ ...tenantConfig(), admins: [a0] });
-      expect(
-        await hv.modifyTenant({
-          ...modifyTenant(),
-          adminsToRemove: [a0],
-        })
-      )
+      await hv.createTenant({ ...createTenant(), admins: [a0] });
+      await expect(hv.modifyTenant({ ...modifyTenant(), adminsToRemove: [a0] }))
         .to.emit(hv, "AdminRemoved")
         .withArgs("1", a0);
     });
     it("should emit an InfuserAdded event on modifyTenant", async () => {
-      await hv.createTenant({ ...tenantConfig(), admins: [a0] });
-      expect(
-        await hv.modifyTenant({
-          ...modifyTenant(),
-          infusersToAdd: [a1],
-        })
-      )
+      await hv.createTenant({ ...createTenant(), admins: [a0] });
+      await expect(hv.modifyTenant({ ...modifyTenant(), infusersToAdd: [a1] }))
         .to.emit(hv, "InfuserAdded")
         .withArgs("1", a1);
     });
     it("should emit an InfuserRemoved event on modifyTenant", async () => {
-      await hv.createTenant({ ...tenantConfig(), admins: [a0] });
-      expect(
-        await hv.modifyTenant({
-          ...modifyTenant(),
-          infusersToRemove: [a0],
-        })
+      await hv.createTenant({ ...createTenant(), admins: [a0] });
+      await expect(
+        hv.modifyTenant({ ...modifyTenant(), infusersToRemove: [a0] })
       )
         .to.emit(hv, "InfuserRemoved")
         .withArgs("1", a0);
     });
     it("should emit a CollectionAdded event on modifyTenant", async () => {
-      await hv.createTenant({ ...tenantConfig(), admins: [a0] });
-      expect(
-        await hv.modifyTenant({
+      await hv.createTenant({ ...createTenant(), admins: [a0] });
+      await expect(
+        hv.modifyTenant({
           ...modifyTenant(),
           collectionsToAdd: [collection.address],
         })
@@ -223,9 +225,9 @@ describe("HyperVIBES", function () {
         .withArgs("1", collection.address);
     });
     it("should emit an CollectionRemoved event on modifyTenant", async () => {
-      await hv.createTenant({ ...tenantConfig(), admins: [a0] });
-      expect(
-        await hv.modifyTenant({
+      await hv.createTenant({ ...createTenant(), admins: [a0] });
+      await expect(
+        hv.modifyTenant({
           ...modifyTenant(),
           collectionsToRemove: [collection.address],
         })

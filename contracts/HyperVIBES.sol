@@ -11,11 +11,30 @@ struct TokenData {
     uint256 lastClaimAt;
 }
 
+// per-tenant configuration
+struct TenantConfig {
+    IERC20 token;
+    TenantConstraints constraints;
+}
+
+// modifyiable tenant constraints
+struct TenantConstraints {
+    uint256 minDailyRate;
+    uint256 imaxDailyRate;
+    uint256 minInfusionAmount;
+    uint256 imaxInfusionAmount;
+    uint256 imaxTokenBalance;
+    bool requireOwnedNft;
+    bool disableMultiInfuse;
+    bool requireInfusionWhitelist;
+    bool requireCollectionWhitelist;
+}
+
 // data provided when creating a tenant
 struct CreateTenantInput {
     string name;
     string description;
-    IERC20 token;
+    TenantConfig config;
     address[] admins;
     address[] infusers;
     IERC721[] collections;
@@ -56,19 +75,17 @@ contract HyperVIBES {
     // storage
     // ---
 
+    // tenant ID -> constraints
+    mapping(uint256 => TenantConfig) public tenantConfig;
+
     // tenant ID -> address -> (is admin flag)
     mapping(uint256 => mapping(address => bool)) public isAdmin;
 
     // tenant ID -> address -> (is infuser flag)
-    // 0x0=true => no public infusion
     mapping(uint256 => mapping(address => bool)) public isInfuser;
 
-    // tenant ID -> erc721 -> (is allowed nft flag)
-    // 0x0=true => no open infusion
+    // tenant ID -> erc721 -> (is allowed collection flag)
     mapping(uint256 => mapping(IERC721 => bool)) public isCollection;
-
-    // tenant ID -> configuration
-    mapping(uint256 => IERC20) public tenantToken;
 
     // tenant ID -> nft -> token ID -> token data
     mapping(uint256 => mapping(IERC721 => mapping(uint256 => TokenData)))
@@ -82,7 +99,6 @@ contract HyperVIBES {
 
     event TenantCreated(
         uint256 indexed tenantId,
-        IERC20 indexed token,
         string name,
         string description
     );
@@ -112,7 +128,7 @@ contract HyperVIBES {
         string comment
     );
 
-     event Claimed(
+    event Claimed(
         uint256 indexed tenantId,
         IERC721 indexed collection,
         uint256 indexed tokenId,
@@ -125,17 +141,12 @@ contract HyperVIBES {
 
     // setup a new tenant
     function createTenant(CreateTenantInput memory create) external {
-        require(create.token != IERC20(address(0)), "invalid token");
+        require(create.config.token != IERC20(address(0)), "invalid token");
 
         uint256 tenantId = nextTenantId++;
-        tenantToken[tenantId] = create.token;
+        tenantConfig[tenantId] = create.config;
 
-        emit TenantCreated(
-            tenantId,
-            create.token,
-            create.name,
-            create.description
-        );
+        emit TenantCreated(tenantId, create.name, create.description);
 
         for (uint256 i = 0; i < create.admins.length; i++) {
             _addAdmin(tenantId, create.admins[i]);
@@ -151,9 +162,7 @@ contract HyperVIBES {
     }
 
     // update mutable configuration for a tenant
-    function modifyTenant(ModifyTenantInput memory input)
-        public
-    {
+    function modifyTenant(ModifyTenantInput memory input) public {
         require(isAdmin[input.tenantId][msg.sender], "not tenant admin");
 
         // adds
@@ -186,31 +195,37 @@ contract HyperVIBES {
     }
 
     function _addAdmin(uint256 tenantId, address admin) internal {
+        require(admin != address(0), "invalid admin");
         isAdmin[tenantId][admin] = true;
         emit AdminAdded(tenantId, admin);
     }
 
     function _removeAdmin(uint256 tenantId, address admin) internal {
+        require(admin != address(0), "invalid admin");
         delete isAdmin[tenantId][admin];
         emit AdminRemoved(tenantId, admin);
     }
 
     function _addInfuser(uint256 tenantId, address infuser) internal {
+        require(infuser != address(0), "invalid infuser");
         isInfuser[tenantId][infuser] = true;
         emit InfuserAdded(tenantId, infuser);
     }
 
     function _removeInfuser(uint256 tenantId, address infuser) internal {
+        require(infuser != address(0), "invalid infuser");
         delete isInfuser[tenantId][infuser];
         emit InfuserRemoved(tenantId, infuser);
     }
 
     function _addCollection(uint256 tenantId, IERC721 collection) internal {
+        require(collection != IERC721(address(0)), "invalid collection");
         isCollection[tenantId][collection] = true;
         emit CollectionAdded(tenantId, collection);
     }
 
     function _removeCollection(uint256 tenantId, IERC721 collection) internal {
+        require(collection != IERC721(address(0)), "invalid collection");
         delete isCollection[tenantId][collection];
         emit CollectionRemoved(tenantId, collection);
     }
@@ -249,7 +264,7 @@ contract HyperVIBES {
         // TODO: constraints
 
         // infuse
-        tenantToken[input.tenantId].transferFrom(
+        tenantConfig[input.tenantId].token.transferFrom(
             msg.sender,
             address(this),
             input.amount
@@ -325,7 +340,7 @@ contract HyperVIBES {
         // update balances and execute ERC-20 transfer
         data.balance -= toClaim;
         data.lastClaimAt = claimAt;
-        tenantToken[input.tenantId].transfer(msg.sender, toClaim);
+        tenantConfig[input.tenantId].token.transfer(msg.sender, toClaim);
 
         emit Claimed(input.tenantId, input.collection, input.tokenId, toClaim);
     }
@@ -361,7 +376,7 @@ contract HyperVIBES {
 
     // returns true if a tenant has been setup
     function _tenantExists(uint256 tenantId) internal view returns (bool) {
-        return tenantToken[tenantId] != IERC20(address(0));
+        return tenantConfig[tenantId].token != IERC20(address(0));
     }
 
     // returns true if token exists (and is not burnt)
