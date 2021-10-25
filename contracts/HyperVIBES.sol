@@ -75,7 +75,7 @@ contract HyperVIBES {
     // storage
     // ---
 
-    // tenant ID -> constraints
+    // tenant ID -> tenant data
     mapping(uint256 => TenantConfig) public tenantConfig;
 
     // tenant ID -> address -> (is admin flag)
@@ -107,9 +107,9 @@ contract HyperVIBES {
 
     event AdminRemoved(uint256 indexed tenantId, address indexed admin);
 
-    event InfuserAdded(uint256 indexed tenantId, address indexed admin);
+    event InfuserAdded(uint256 indexed tenantId, address indexed infuser);
 
-    event InfuserRemoved(uint256 indexed tenantId, address indexed admin);
+    event InfuserRemoved(uint256 indexed tenantId, address indexed infuser);
 
     event CollectionAdded(uint256 indexed tenantId, IERC721 indexed collection);
 

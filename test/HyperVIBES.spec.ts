@@ -3,6 +3,8 @@ import { expect } from "chai";
 import { ethers } from "hardhat";
 import { HyperVIBES, MockERC20, MockERC721 } from "../typechain";
 
+const { AddressZero } = ethers.constants;
+
 describe("HyperVIBES", function () {
   it("should snap on the dot sol", async function () {
     const HyperVIBES = await ethers.getContractFactory("HyperVIBES");
@@ -105,10 +107,7 @@ describe("HyperVIBES", function () {
       await expect(
         hv.createTenant({
           ...createTenant(),
-          config: {
-            ...createTenant().config,
-            token: ethers.constants.AddressZero,
-          },
+          config: { ...createTenant().config, token: AddressZero },
         })
       ).to.be.revertedWith("invalid token");
     });
@@ -255,6 +254,30 @@ describe("HyperVIBES", function () {
       )
         .to.emit(hv, "CollectionRemoved")
         .withArgs("1", collection.address);
+    });
+    it("should revert when adding or removing entities with zero address", async () => {
+      await hv.createTenant({ ...createTenant(), admins: [a0] });
+      await expect(
+        hv.modifyTenant({ ...modifyTenant(), adminsToAdd: [AddressZero] })
+      ).to.be.revertedWith("invalid admin");
+      await expect(
+        hv.modifyTenant({ ...modifyTenant(), adminsToRemove: [AddressZero] })
+      ).to.be.revertedWith("invalid admin");
+      await expect(
+        hv.modifyTenant({ ...modifyTenant(), infusersToAdd: [AddressZero] })
+      ).to.be.revertedWith("invalid infuser");
+      await expect(
+        hv.modifyTenant({ ...modifyTenant(), infusersToRemove: [AddressZero] })
+      ).to.be.revertedWith("invalid infuser");
+      await expect(
+        hv.modifyTenant({ ...modifyTenant(), collectionsToAdd: [AddressZero] })
+      ).to.be.revertedWith("invalid collection");
+      await expect(
+        hv.modifyTenant({
+          ...modifyTenant(),
+          collectionsToRemove: [AddressZero],
+        })
+      ).to.be.revertedWith("invalid collection");
     });
   });
 });
