@@ -57,6 +57,20 @@ describe("HyperVIBES", function () {
       await hv.createTenant(tenantConfig());
       expect(await hv.tenantToken("1")).equals(token.address);
     });
+    it("should revert if attempting to modify a tenant as a non-admin", async () => {
+      await hv.createTenant(tenantConfig());
+      await expect(hv.modifyTenant(modifyTenant())).to.be.revertedWith(
+        "not tenant admin"
+      );
+    });
+    it("should revert if providing zero address for tenant erc20", async () => {
+      await expect(
+        hv.createTenant({
+          ...tenantConfig(),
+          token: ethers.constants.AddressZero,
+        })
+      ).to.be.revertedWith("invalid token");
+    });
     it("should autoincrement tenant id", async () => {
       await hv.createTenant(tenantConfig());
       await hv.createTenant(tenantConfig());
