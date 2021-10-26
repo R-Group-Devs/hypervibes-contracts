@@ -1,4 +1,4 @@
-import { BigNumber } from "@ethersproject/bignumber";
+import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
@@ -293,7 +293,7 @@ describe("HyperVIBES", function () {
     });
   });
 
-  describe.only("infusion", () => {
+  describe("infusion", () => {
     // ---
     // fixtures
     // ---
@@ -314,11 +314,28 @@ describe("HyperVIBES", function () {
     // tests
     // ---
 
-    it("should infuse", async () => {
+    it("should infuse tokens from msg.sender to token", async () => {
       await hv.createRealm({ ...createRealm(), infusers: [a0] });
-      await token.mint(parseUnits("50000"));
+      await token.mint(parseUnits("60000"));
       await collection.mint("420");
       await hv.infuse({ ...infuse() });
+      expect(await token.balanceOf(a0)).to.equal(parseUnits("10000"));
+      expect(
+        (await hv.tokenData("1", collection.address, "420")).balance
+      ).to.equal(parseUnits("50000"));
     });
+    it("should emit an Infused event", () => {});
+    it("should revert on an invalid token id", () => {});
+    it("should revert on an invalid collection", () => {});
+    it("should revert if amount is too high", () => {});
+    it("should revert if amount is too low", () => {});
+    it("should revert if nft not owned by infuser and requireNftIsOwned is true", () => {});
+    it("should revert if attempting delegated infusion by non-infuser", () => {});
+    it("should revert if attempting public infusion when allowPublicInfusion is false", () => {});
+    it("should revert if infusing a non-whitelisted collection and allowAllCollections is false", () => {});
+    it("should revert if dailyRate is different from initial value on subsequent infusions", () => {});
+    it("should revert if infusing a second time when allowMultiInfuse is false", () => {});
+    it("should revert if daily rate too high", () => {});
+    it("should revert if daily rate too low", () => {});
   });
 });
