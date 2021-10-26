@@ -27,6 +27,12 @@ Install dependencies:
 yarn
 ```
 
+Compile all artifacts and generate typechain types:
+
+```
+yarn build
+```
+
 Run unit tests:
 
 ```
@@ -39,11 +45,12 @@ Run unit tests showing gas usage by function and deploy costs:
 REPORT_GAS=1 yarn test
 ```
 
-Compile all artifacts and generate typechain types:
+Run unit tests and report coverage:
 
 ```
-yarn build
+yarn test:coverage
 ```
+
 
 ## Deployment
 
