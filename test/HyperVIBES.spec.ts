@@ -1,3 +1,4 @@
+import { BigNumber } from "@ethersproject/bignumber";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
@@ -7,72 +8,84 @@ const { AddressZero } = ethers.constants;
 const { parseUnits, formatUnits } = ethers.utils;
 
 describe("HyperVIBES", function () {
-  it("should snap on the dot sol", async function () {
+  // ---
+  // fixtures
+  // ---
+
+  let hv: HyperVIBES;
+  let token: MockERC20;
+  let collection: MockERC721;
+  let accounts: SignerWithAddress[];
+  let a0: string, a1: string, a2: string, a3: string;
+
+  beforeEach(async () => {
     const HyperVIBES = await ethers.getContractFactory("HyperVIBES");
-    const hv = await HyperVIBES.deploy();
-    await hv.deployed();
+    const MockERC20 = await ethers.getContractFactory("MockERC20");
+    const MockERC721 = await ethers.getContractFactory("MockERC721");
+    [hv, token, collection, accounts] = await Promise.all([
+      HyperVIBES.deploy(),
+      MockERC20.deploy(),
+      MockERC721.deploy(),
+      ethers.getSigners(),
+    ]);
+    // give infinite allowance for a0 to hv
+    await token.approve(hv.address, BigNumber.from(2).pow(256).sub(1));
+    [a0, a1, a2, a3] = accounts.map((a) => a.address);
+  });
+
+  const realmConstraints = () => {
+    return {
+      minDailyRate: parseUnits("1000"),
+      maxDailyRate: parseUnits("1000"),
+      minInfusionAmount: parseUnits("50000"),
+      maxInfusionAmount: parseUnits("1095000"),
+      maxTokenBalance: parseUnits("1095000"),
+      requireNftIsOwned: true,
+      allowMultiInfuse: false,
+      allowPublicInfusion: false,
+      allowAllCollections: true,
+    };
+  };
+
+  const createRealm = () => {
+    return {
+      name: "test realm",
+      description: "description",
+      admins: [],
+      collections: [],
+      infusers: [],
+      config: {
+        token: token.address,
+        constraints: realmConstraints(),
+      },
+    };
+  };
+
+  const modifyRealm = () => {
+    return {
+      realmId: "1",
+      adminsToAdd: [],
+      adminsToRemove: [],
+      infusersToAdd: [],
+      infusersToRemove: [],
+      collectionsToAdd: [],
+      collectionsToRemove: [],
+    };
+  };
+
+  // ---
+  // basics
+  // ---
+
+  it("should snap on the dot sol", async function () {
     expect(await hv.name()).equals("HyperVIBES");
   });
+
+  // ---
+  // admin
+  // ---
+
   describe("realm administration", () => {
-    let hv: HyperVIBES;
-    let token: MockERC20;
-    let collection: MockERC721;
-    let accounts: SignerWithAddress[];
-    let a0: string, a1: string, a2: string, a3: string;
-
-    beforeEach(async () => {
-      const HyperVIBES = await ethers.getContractFactory("HyperVIBES");
-      const MockERC20 = await ethers.getContractFactory("MockERC20");
-      const MockERC721 = await ethers.getContractFactory("MockERC721");
-      [hv, token, collection, accounts] = await Promise.all([
-        HyperVIBES.deploy(),
-        MockERC20.deploy(),
-        MockERC721.deploy(),
-        ethers.getSigners(),
-      ]);
-      [a0, a1, a2, a3] = accounts.map((a) => a.address);
-    });
-
-    const realmConstraints = () => {
-      return {
-        minDailyRate: parseUnits("1000"),
-        maxDailyRate: parseUnits("1000"),
-        minInfusionAmount: parseUnits("50000"),
-        maxInfusionAmount: parseUnits("1095000"),
-        maxTokenBalance: parseUnits("1095000"),
-        requireNftIsOwned: true,
-        allowMultiInfuse: false,
-        allowPublicInfusion: false,
-        allowAllCollections: true,
-      };
-    };
-
-    const createRealm = () => {
-      return {
-        name: "test realm",
-        description: "description",
-        admins: [],
-        collections: [],
-        infusers: [],
-        config: {
-          token: token.address,
-          constraints: realmConstraints(),
-        },
-      };
-    };
-
-    const modifyRealm = () => {
-      return {
-        realmId: "1",
-        adminsToAdd: [],
-        adminsToRemove: [],
-        infusersToAdd: [],
-        infusersToRemove: [],
-        collectionsToAdd: [],
-        collectionsToRemove: [],
-      };
-    };
-
     it("should create a realm", async () => {
       await hv.createRealm(createRealm());
       expect((await hv.realmConfig("1")).token).equals(token.address);
@@ -277,6 +290,35 @@ describe("HyperVIBES", function () {
           collectionsToRemove: [AddressZero],
         })
       ).to.be.revertedWith("invalid collection");
+    });
+  });
+
+  describe.only("infusion", () => {
+    // ---
+    // fixtures
+    // ---
+
+    const infuse = () => {
+      return {
+        realmId: "1",
+        collection: collection.address,
+        tokenId: "420",
+        infuser: a0,
+        dailyRate: parseUnits("1000"),
+        amount: parseUnits("50000"),
+        comment: "comment",
+      };
+    };
+
+    // ---
+    // tests
+    // ---
+
+    it("should infuse", async () => {
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await token.mint(parseUnits("50000"));
+      await collection.mint("420");
+      await hv.infuse({ ...infuse() });
     });
   });
 });
