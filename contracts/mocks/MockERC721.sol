@@ -15,22 +15,6 @@ contract MockERC721 is ERC721Enumerable {
     }
 
     function tokenURI(uint256) public pure override returns (string memory) {
-        return "uri";
-    }
-}
-
-contract MockERC721NoMetadata is ERC721 {
-    constructor() ERC721("MockERC721", "TEST") {}
-
-    function mint(uint256 tokenId) external {
-        _mint(_msgSender(), tokenId);
-    }
-
-    function burn(uint256 tokenId) external {
-        _burn(tokenId);
-    }
-
-    function tokenURI(uint256) public pure override returns (string memory) {
-        revert("no metadata");
+        return "ipfs://ipfs/QmSrvhWBLbedStELaMS8eXAbgTDG2q4g6qj6QSMoKwFskG";
     }
 }
