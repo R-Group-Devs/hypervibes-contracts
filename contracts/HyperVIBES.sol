@@ -4,8 +4,6 @@ pragma solidity ^0.8.0;
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
-uint256 constant INFINITY = 2 ** 256 - 1;
-
 // data stored for-each infused token
 struct TokenData {
     uint256 dailyRate;
@@ -22,13 +20,18 @@ struct TenantConfig {
 // modifyiable tenant constraints
 struct TenantConstraints {
     uint256 minDailyRate;
-    uint256 imaxDailyRate;
+    uint256 maxDailyRate;
     uint256 minInfusionAmount;
-    uint256 imaxInfusionAmount;
-    uint256 imaxTokenBalance;
+    uint256 maxInfusionAmount;
+    uint256 maxTokenBalance;
+    // if true, infuser must own the NFT being infused
     bool requireOwnedNft;
+    // if true, an NFT can only be infused once
     bool disableMultiInfuse;
+    // if true, infuser must be on the allowed infusers list. If false, infuser
+    // must be msg.sender if not on the infusion list
     bool requireInfusionWhitelist;
+    // if true, nft collection must be on the allow list
     bool requireCollectionWhitelist;
 }
 
@@ -248,29 +251,75 @@ contract HyperVIBES {
 
         TenantConfig memory tenant = tenantConfig[input.tenantId];
 
-        require(input.amount >= tenant.constraints.minInfusionAmount, "amount too low");
-        require(input.amount <= INFINITY - tenant.constraints.imaxInfusionAmount, "amount too high");
+        // assert amount to be infused is within the min and max constraints
+        require(
+            input.amount >= tenant.constraints.minInfusionAmount,
+            "amount too low"
+        );
+        require(
+            input.amount <= tenant.constraints.maxInfusionAmount,
+            "amount too high"
+        );
 
-        // TODO: check require owned
-        // TODO: check infusor whitelist
-        // TODO: check collection whitelist
+        // a "public infusion" is when msg sender is the infuser to be recorded.
+        // This can be done only when the requireInfusionWhitelist flag is NOT
+        // set. This will be FALSE if msg.sender is on the infusion whitelist
+        // and requireInfusionWhitelist is true, but thats okay because
+        // isPublicInfusion is only checked if infuser is not on the whitelist
+        bool isPublicInfusion = msg.sender == input.infuser &&
+            !tenant.constraints.requireInfusionWhitelist;
 
-        // init storage or assert that daily rate is the same
+        // True if the NFT to be infused is owned by the recorded infuser
+        bool isOwnedByInfuser = input.collection.ownerOf(input.tokenId) ==
+            input.infuser;
+
+        // true if msg.sender is a whitelisted infuser
+        bool isOnInfuserWhitelist = isInfuser[input.tenantId][msg.sender];
+
+        // true if the nft collection is on the whitelist
+        bool isOnCollectionWhitelist = isCollection[input.tenantId][
+            input.collection
+        ];
+
+        require(
+            !tenant.constraints.requireOwnedNft || isOwnedByInfuser,
+            "nft not owned by infuser"
+        );
+        require(isOnInfuserWhitelist || isPublicInfusion, "invalid infuser");
+        require(
+            !tenant.constraints.requireCollectionWhitelist ||
+                isOnCollectionWhitelist,
+            "invalid collection"
+        );
+
+        // if already infused...
         if (data.lastClaimAt != 0) {
-            // if already infused, assert same rate
+            // assert same rate
             require(
                 data.dailyRate == input.dailyRate,
                 "daily rate is immutable"
             );
-            require(!tenant.constraints.disableMultiInfuse, "multi infuse disabled");
+            // assert multi-infuse is allowed
+            require(
+                !tenant.constraints.disableMultiInfuse,
+                "multi infuse disabled"
+            );
+
             // intentionally ommitting checks to min/max daily rate -- its
             // possible tenant configuration has changed since the initial
             // infusion, we don't want to prevent "topping off" the NFT if this
             // is the case
         } else {
-            // else write info to storage
-            require(input.dailyRate >= tenant.constraints.minDailyRate, "daily rate too low");
-            require(input.dailyRate <= INFINITY - tenant.constraints.imaxDailyRate, "daily rate too high");
+            // else ensure daily rate is within min/max constraints
+            require(
+                input.dailyRate >= tenant.constraints.minDailyRate,
+                "daily rate too low"
+            );
+            require(
+                input.dailyRate <= tenant.constraints.maxDailyRate,
+                "daily rate too high"
+            );
+            // initialize token storage
             data.dailyRate = input.dailyRate;
             data.lastClaimAt = block.timestamp;
         }

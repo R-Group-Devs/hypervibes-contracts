@@ -35,10 +35,10 @@ describe("HyperVIBES", function () {
     const tenantConstraints = () => {
       return {
         minDailyRate: 0,
-        imaxDailyRate: 0,
+        maxDailyRate: 0,
         minInfusionAmount: 0,
-        imaxInfusionAmount: 0,
-        imaxTokenBalance: 0,
+        maxInfusionAmount: 0,
+        maxTokenBalance: 0,
         requireOwnedNft: false,
         disableMultiInfuse: false,
         requireInfusionWhitelist: false,
@@ -81,9 +81,9 @@ describe("HyperVIBES", function () {
         // creating non-zero values for all to exercise a worst-case storage
         // usage for gas stats
         disableMultiInfuse: true,
-        imaxDailyRate: 500,
-        imaxInfusionAmount: 500,
-        imaxTokenBalance: 1000,
+        maxDailyRate: 500,
+        maxInfusionAmount: 500,
+        maxTokenBalance: 1000,
         minDailyRate: 50,
         minInfusionAmount: 500,
         requireCollectionWhitelist: true,
@@ -95,7 +95,7 @@ describe("HyperVIBES", function () {
         config: { token: token.address, constraints },
       });
       const view = await hv.tenantConfig("1");
-      expect(view.constraints.imaxDailyRate).to.equal(500);
+      expect(view.constraints.maxDailyRate).to.equal(500);
     });
     it("should revert if attempting to modify a tenant as a non-admin", async () => {
       await hv.createTenant(createTenant());
