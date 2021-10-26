@@ -17,7 +17,7 @@ Smart contracts for the HyperVIBES project.
 | --- | --- |
 | mainnet | n/a
 | polygon | n/a
-| ropsten | [`0x57FBF9E899E17E23d46425e33eE191C8FaD27c28`](https://ropsten.etherscan.io/address/0x57FBF9E899E17E23d46425e33eE191C8FaD27c28)
+| ropsten | [`0x76e9f19D76Ae534cFb754AFE9D9CC52395E5fFaF`](https://ropsten.etherscan.io/address/0x76e9f19D76Ae534cFb754AFE9D9CC52395E5fFaF)
 
 ## Development
 
