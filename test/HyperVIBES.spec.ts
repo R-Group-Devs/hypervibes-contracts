@@ -4,6 +4,7 @@ import { ethers } from "hardhat";
 import { HyperVIBES, MockERC20, MockERC721 } from "../typechain";
 
 const { AddressZero } = ethers.constants;
+const { parseUnits, formatUnits } = ethers.utils;
 
 describe("HyperVIBES", function () {
   it("should snap on the dot sol", async function () {
@@ -34,15 +35,15 @@ describe("HyperVIBES", function () {
 
     const realmConstraints = () => {
       return {
-        minDailyRate: 0,
-        maxDailyRate: 0,
-        minInfusionAmount: 0,
-        maxInfusionAmount: 0,
-        maxTokenBalance: 0,
-        requireNftIsOwned: false,
+        minDailyRate: parseUnits("1000"),
+        maxDailyRate: parseUnits("1000"),
+        minInfusionAmount: parseUnits("50000"),
+        maxInfusionAmount: parseUnits("1095000"),
+        maxTokenBalance: parseUnits("1095000"),
+        requireNftIsOwned: true,
         allowMultiInfuse: false,
         allowPublicInfusion: false,
-        allowAllCollections: false,
+        allowAllCollections: true,
       };
     };
 
