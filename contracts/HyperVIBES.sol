@@ -11,43 +11,49 @@ struct TokenData {
     uint256 lastClaimAt;
 }
 
-// per-tenant configuration
-struct TenantConfig {
+// per-realm configuration
+struct RealmConfig {
     IERC20 token;
-    TenantConstraints constraints;
+    RealmConstraints constraints;
 }
 
-// modifyiable tenant constraints
-struct TenantConstraints {
+// modifyiable realm constraints
+struct RealmConstraints {
+    // token mining rate must be at least min
     uint256 minDailyRate;
+    // token mining rate cannot exceed max
     uint256 maxDailyRate;
+    // min amount allowed for a single infusion
     uint256 minInfusionAmount;
+    // max amount allowed for a single infusion
     uint256 maxInfusionAmount;
+    // token cannot have a total infused balance greater than `maxTokenBalance`
     uint256 maxTokenBalance;
     // if true, infuser must own the NFT being infused
-    bool requireOwnedNft;
-    // if true, an NFT can only be infused once
-    bool disableMultiInfuse;
-    // if true, infuser must be on the allowed infusers list. If false, infuser
-    // must be msg.sender if not on the infusion list
-    bool requireInfusionWhitelist;
-    // if true, nft collection must be on the allow list
-    bool requireCollectionWhitelist;
+    bool requireNftIsOwned;
+    // if true, an nft can be infused multiple times
+    bool allowMultiInfuse;
+    // if true, any msg.sender may infuse if msg.sender = infuser. Delegated /
+    // proxy infusions must always have the infuser on the whitelist
+    bool allowPublicInfusion;
+    // if true, any NFT from any collection may be infused. If false, contract
+    // must be on the whitelist
+    bool allowAllCollections;
 }
 
-// data provided when creating a tenant
-struct CreateTenantInput {
+// data provided when creating a realm
+struct CreateRealmInput {
     string name;
     string description;
-    TenantConfig config;
+    RealmConfig config;
     address[] admins;
     address[] infusers;
     IERC721[] collections;
 }
 
-// data provided when modifying a tenant
-struct ModifyTenantInput {
-    uint256 tenantId;
+// data provided when modifying a realm
+struct ModifyRealmInput {
+    uint256 realmId;
     address[] adminsToAdd;
     address[] adminsToRemove;
     address[] infusersToAdd;
@@ -58,7 +64,7 @@ struct ModifyTenantInput {
 
 // data provided when infusing an nft
 struct InfuseInput {
-    uint256 tenantId;
+    uint256 realmId;
     IERC721 collection;
     uint256 tokenId;
     address infuser;
@@ -69,7 +75,7 @@ struct InfuseInput {
 
 // data provided when claiming from an infused nft
 struct ClaimInput {
-    uint256 tenantId;
+    uint256 realmId;
     IERC721 collection;
     uint256 tokenId;
     uint256 amount;
@@ -80,51 +86,44 @@ contract HyperVIBES {
     // storage
     // ---
 
-    // tenant ID -> tenant data
-    mapping(uint256 => TenantConfig) public tenantConfig;
+    // realm ID -> realm data
+    mapping(uint256 => RealmConfig) public realmConfig;
 
-    // tenant ID -> address -> (is admin flag)
+    // realm ID -> address -> (is admin flag)
     mapping(uint256 => mapping(address => bool)) public isAdmin;
 
-    // tenant ID -> address -> (is infuser flag)
+    // realm ID -> address -> (is infuser flag)
     mapping(uint256 => mapping(address => bool)) public isInfuser;
 
-    // tenant ID -> erc721 -> (is allowed collection flag)
+    // realm ID -> erc721 -> (is allowed collection flag)
     mapping(uint256 => mapping(IERC721 => bool)) public isCollection;
 
-    // tenant ID -> nft -> token ID -> token data
+    // realm ID -> nft -> token ID -> token data
     mapping(uint256 => mapping(IERC721 => mapping(uint256 => TokenData)))
         public tokenData;
 
-    uint256 public nextTenantId = 1;
+    uint256 public nextRealmId = 1;
 
     // ---
     // events
     // ---
 
-    event TenantCreated(
-        uint256 indexed tenantId,
-        string name,
-        string description
-    );
+    event RealmCreated(uint256 indexed realmId, string name, string description);
 
-    event AdminAdded(uint256 indexed tenantId, address indexed admin);
+    event AdminAdded(uint256 indexed realmId, address indexed admin);
 
-    event AdminRemoved(uint256 indexed tenantId, address indexed admin);
+    event AdminRemoved(uint256 indexed realmId, address indexed admin);
 
-    event InfuserAdded(uint256 indexed tenantId, address indexed infuser);
+    event InfuserAdded(uint256 indexed realmId, address indexed infuser);
 
-    event InfuserRemoved(uint256 indexed tenantId, address indexed infuser);
+    event InfuserRemoved(uint256 indexed realmId, address indexed infuser);
 
-    event CollectionAdded(uint256 indexed tenantId, IERC721 indexed collection);
+    event CollectionAdded(uint256 indexed realmId, IERC721 indexed collection);
 
-    event CollectionRemoved(
-        uint256 indexed tenantId,
-        IERC721 indexed collection
-    );
+    event CollectionRemoved(uint256 indexed realmId, IERC721 indexed collection);
 
     event Infused(
-        uint256 indexed tenantId,
+        uint256 indexed realmId,
         IERC721 indexed collection,
         uint256 indexed tokenId,
         address infuser,
@@ -134,7 +133,7 @@ contract HyperVIBES {
     );
 
     event Claimed(
-        uint256 indexed tenantId,
+        uint256 indexed realmId,
         IERC721 indexed collection,
         uint256 indexed tokenId,
         uint256 amount
@@ -144,95 +143,95 @@ contract HyperVIBES {
     // admin mutations
     // ---
 
-    // setup a new tenant
-    function createTenant(CreateTenantInput memory create) external {
+    // setup a new realm
+    function createRealm(CreateRealmInput memory create) external {
         require(create.config.token != IERC20(address(0)), "invalid token");
 
-        uint256 tenantId = nextTenantId++;
-        tenantConfig[tenantId] = create.config;
+        uint256 realmId = nextRealmId++;
+        realmConfig[realmId] = create.config;
 
-        emit TenantCreated(tenantId, create.name, create.description);
+        emit RealmCreated(realmId, create.name, create.description);
 
         for (uint256 i = 0; i < create.admins.length; i++) {
-            _addAdmin(tenantId, create.admins[i]);
+            _addAdmin(realmId, create.admins[i]);
         }
 
         for (uint256 i = 0; i < create.infusers.length; i++) {
-            _addInfuser(tenantId, create.infusers[i]);
+            _addInfuser(realmId, create.infusers[i]);
         }
 
         for (uint256 i = 0; i < create.collections.length; i++) {
-            _addCollection(tenantId, create.collections[i]);
+            _addCollection(realmId, create.collections[i]);
         }
     }
 
-    // update mutable configuration for a tenant
-    function modifyTenant(ModifyTenantInput memory input) public {
-        require(isAdmin[input.tenantId][msg.sender], "not tenant admin");
+    // update mutable configuration for a realm
+    function modifyRealm(ModifyRealmInput memory input) public {
+        require(isAdmin[input.realmId][msg.sender], "not realm admin");
 
         // adds
 
         for (uint256 i = 0; i < input.adminsToAdd.length; i++) {
-            _addAdmin(input.tenantId, input.adminsToAdd[i]);
+            _addAdmin(input.realmId, input.adminsToAdd[i]);
         }
 
         for (uint256 i = 0; i < input.infusersToAdd.length; i++) {
-            _addInfuser(input.tenantId, input.infusersToAdd[i]);
+            _addInfuser(input.realmId, input.infusersToAdd[i]);
         }
 
         for (uint256 i = 0; i < input.collectionsToAdd.length; i++) {
-            _addCollection(input.tenantId, input.collectionsToAdd[i]);
+            _addCollection(input.realmId, input.collectionsToAdd[i]);
         }
 
         // removes
 
         for (uint256 i = 0; i < input.adminsToRemove.length; i++) {
-            _removeAdmin(input.tenantId, input.adminsToRemove[i]);
+            _removeAdmin(input.realmId, input.adminsToRemove[i]);
         }
 
         for (uint256 i = 0; i < input.infusersToRemove.length; i++) {
-            _removeInfuser(input.tenantId, input.infusersToRemove[i]);
+            _removeInfuser(input.realmId, input.infusersToRemove[i]);
         }
 
         for (uint256 i = 0; i < input.collectionsToRemove.length; i++) {
-            _removeCollection(input.tenantId, input.collectionsToRemove[i]);
+            _removeCollection(input.realmId, input.collectionsToRemove[i]);
         }
     }
 
-    function _addAdmin(uint256 tenantId, address admin) internal {
+    function _addAdmin(uint256 realmId, address admin) internal {
         require(admin != address(0), "invalid admin");
-        isAdmin[tenantId][admin] = true;
-        emit AdminAdded(tenantId, admin);
+        isAdmin[realmId][admin] = true;
+        emit AdminAdded(realmId, admin);
     }
 
-    function _removeAdmin(uint256 tenantId, address admin) internal {
+    function _removeAdmin(uint256 realmId, address admin) internal {
         require(admin != address(0), "invalid admin");
-        delete isAdmin[tenantId][admin];
-        emit AdminRemoved(tenantId, admin);
+        delete isAdmin[realmId][admin];
+        emit AdminRemoved(realmId, admin);
     }
 
-    function _addInfuser(uint256 tenantId, address infuser) internal {
+    function _addInfuser(uint256 realmId, address infuser) internal {
         require(infuser != address(0), "invalid infuser");
-        isInfuser[tenantId][infuser] = true;
-        emit InfuserAdded(tenantId, infuser);
+        isInfuser[realmId][infuser] = true;
+        emit InfuserAdded(realmId, infuser);
     }
 
-    function _removeInfuser(uint256 tenantId, address infuser) internal {
+    function _removeInfuser(uint256 realmId, address infuser) internal {
         require(infuser != address(0), "invalid infuser");
-        delete isInfuser[tenantId][infuser];
-        emit InfuserRemoved(tenantId, infuser);
+        delete isInfuser[realmId][infuser];
+        emit InfuserRemoved(realmId, infuser);
     }
 
-    function _addCollection(uint256 tenantId, IERC721 collection) internal {
+    function _addCollection(uint256 realmId, IERC721 collection) internal {
         require(collection != IERC721(address(0)), "invalid collection");
-        isCollection[tenantId][collection] = true;
-        emit CollectionAdded(tenantId, collection);
+        isCollection[realmId][collection] = true;
+        emit CollectionAdded(realmId, collection);
     }
 
-    function _removeCollection(uint256 tenantId, IERC721 collection) internal {
+    function _removeCollection(uint256 realmId, IERC721 collection) internal {
         require(collection != IERC721(address(0)), "invalid collection");
-        delete isCollection[tenantId][collection];
-        emit CollectionRemoved(tenantId, collection);
+        delete isCollection[realmId][collection];
+        emit CollectionRemoved(realmId, collection);
     }
 
     // ---
@@ -240,85 +239,38 @@ contract HyperVIBES {
     // ---
 
     function infuse(InfuseInput memory input) external {
-        require(
-            _isTokenValid(input.collection, input.tokenId),
-            "invalid token"
-        );
+        require(_isTokenValid(input.collection, input.tokenId), "invalid token");
 
-        TokenData storage data = tokenData[input.tenantId][input.collection][
-            input.tokenId
-        ];
-
-        TenantConfig memory tenant = tenantConfig[input.tenantId];
+        TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
+        RealmConfig memory realm = realmConfig[input.realmId];
 
         // assert amount to be infused is within the min and max constraints
-        require(
-            input.amount >= tenant.constraints.minInfusionAmount,
-            "amount too low"
-        );
-        require(
-            input.amount <= tenant.constraints.maxInfusionAmount,
-            "amount too high"
-        );
+        require(input.amount >= realm.constraints.minInfusionAmount, "amount too low");
+        require(input.amount <= realm.constraints.maxInfusionAmount, "amount too high");
 
-        // a "public infusion" is when msg sender is the infuser to be recorded.
-        // This can be done only when the requireInfusionWhitelist flag is NOT
-        // set. This will be FALSE if msg.sender is on the infusion whitelist
-        // and requireInfusionWhitelist is true, but thats okay because
-        // isPublicInfusion is only checked if infuser is not on the whitelist
-        bool isPublicInfusion = msg.sender == input.infuser &&
-            !tenant.constraints.requireInfusionWhitelist;
+        bool isPublicInfusion = msg.sender == input.infuser && realm.constraints.allowPublicInfusion;
+        bool isOwnedByInfuser = input.collection.ownerOf(input.tokenId) == input.infuser;
+        bool isOnInfuserWhitelist = isInfuser[input.realmId][msg.sender];
+        bool isOnCollectionWhitelist = isCollection[input.realmId][input.collection];
 
-        // True if the NFT to be infused is owned by the recorded infuser
-        bool isOwnedByInfuser = input.collection.ownerOf(input.tokenId) ==
-            input.infuser;
-
-        // true if msg.sender is a whitelisted infuser
-        bool isOnInfuserWhitelist = isInfuser[input.tenantId][msg.sender];
-
-        // true if the nft collection is on the whitelist
-        bool isOnCollectionWhitelist = isCollection[input.tenantId][
-            input.collection
-        ];
-
-        require(
-            !tenant.constraints.requireOwnedNft || isOwnedByInfuser,
-            "nft not owned by infuser"
-        );
+        require(isOwnedByInfuser || !realm.constraints.requireNftIsOwned, "nft not owned by infuser");
         require(isOnInfuserWhitelist || isPublicInfusion, "invalid infuser");
-        require(
-            !tenant.constraints.requireCollectionWhitelist ||
-                isOnCollectionWhitelist,
-            "invalid collection"
-        );
+        require(isOnCollectionWhitelist || realm.constraints.allowAllCollections, "invalid collection");
 
         // if already infused...
         if (data.lastClaimAt != 0) {
-            // assert same rate
-            require(
-                data.dailyRate == input.dailyRate,
-                "daily rate is immutable"
-            );
-            // assert multi-infuse is allowed
-            require(
-                !tenant.constraints.disableMultiInfuse,
-                "multi infuse disabled"
-            );
+            require(data.dailyRate == input.dailyRate, "daily rate is immutable");
+            require(realm.constraints.allowMultiInfuse, "multi infuse disabled");
 
             // intentionally ommitting checks to min/max daily rate -- its
-            // possible tenant configuration has changed since the initial
+            // possible realm configuration has changed since the initial
             // infusion, we don't want to prevent "topping off" the NFT if this
             // is the case
         } else {
             // else ensure daily rate is within min/max constraints
-            require(
-                input.dailyRate >= tenant.constraints.minDailyRate,
-                "daily rate too low"
-            );
-            require(
-                input.dailyRate <= tenant.constraints.maxDailyRate,
-                "daily rate too high"
-            );
+            require(input.dailyRate >= realm.constraints.minDailyRate, "daily rate too low");
+            require(input.dailyRate <= realm.constraints.maxDailyRate, "daily rate too high");
+
             // initialize token storage
             data.dailyRate = input.dailyRate;
             data.lastClaimAt = block.timestamp;
@@ -328,11 +280,11 @@ contract HyperVIBES {
 
         // infuse
         // TODO: reentrancy risk!!!!!
-        tenant.token.transferFrom(msg.sender, address(this), input.amount);
+        realm.token.transferFrom(msg.sender, address(this), input.amount);
         data.balance += input.amount;
 
         emit Infused(
-            input.tenantId,
+            input.realmId,
             input.collection,
             input.tokenId,
             input.infuser,
@@ -342,77 +294,42 @@ contract HyperVIBES {
         );
     }
 
-    // determines if a given tenant/operator/infuser combo is allowed
-    function _isAllowedToInfuse(
-        uint256 tenantId,
-        address operator,
-        address infuser
-    ) internal view returns (bool) {
-        // actual infuser -> yes
-        if (isInfuser[tenantId][operator]) {
-            return true;
-        }
-        // no public infusion allowed -> no
-        else if (isInfuser[tenantId][address(0)]) {
-            return false;
-        }
-        // else public is allowed if coming from infuser
-        else if (operator == infuser) {
-            return true;
-        }
-
-        return false;
-    }
-
     // ---
     // claimer mutations
     // ---
 
     function claim(ClaimInput memory input) public {
-        require(
-            _isApprovedOrOwner(input.collection, input.tokenId, msg.sender),
-            "not owner or approved"
-        );
+        require(_isApprovedOrOwner(input.collection, input.tokenId, msg.sender), "not owner or approved");
 
         // compute how much we can claim, only pay attention to amount if its less
         // than available
-        uint256 availableToClaim = _claimable(
-            input.tenantId,
-            input.collection,
-            input.tokenId
-        );
-        uint256 toClaim = input.amount < availableToClaim
-            ? input.amount
-            : availableToClaim;
+        uint256 availableToClaim = _claimable(input.realmId, input.collection, input.tokenId);
+        uint256 toClaim = input.amount < availableToClaim ? input.amount : availableToClaim;
         require(toClaim > 0, "nothing to claim");
 
-        TokenData storage data = tokenData[input.tenantId][input.collection][
-            input.tokenId
-        ];
+        TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
 
         // claim only as far up as we need to get our amount... basically "advances"
         // the lastClaim timestamp the exact amount needed to provide the amount
         // claim at = last + (to claim / rate) * 1 day, rewritten for div last
-        uint256 claimAt = data.lastClaimAt +
-            (toClaim * 1 days) /
-            data.dailyRate;
+        uint256 claimAt = data.lastClaimAt + (toClaim * 1 days) / data.dailyRate;
 
         // update balances and execute ERC-20 transfer
         data.balance -= toClaim;
         data.lastClaimAt = claimAt;
         // TODO: reentrancy risk!!!!!
-        tenantConfig[input.tenantId].token.transfer(msg.sender, toClaim);
+        realmConfig[input.realmId].token.transfer(msg.sender, toClaim);
 
-        emit Claimed(input.tenantId, input.collection, input.tokenId, toClaim);
+        emit Claimed(input.realmId, input.collection, input.tokenId, toClaim);
     }
 
     // compute claimable tokens, reverts for invalid tokens
     function _claimable(
-        uint256 tenantId,
+        uint256 realmId,
         IERC721 collection,
         uint256 tokenId
     ) internal view returns (uint256) {
-        TokenData memory data = tokenData[tenantId][collection][tokenId];
+        TokenData memory data = tokenData[realmId][collection][tokenId];
         require(data.lastClaimAt != 0, "token has not been infused");
         require(_isTokenValid(collection, tokenId), "invalid token");
 
@@ -435,9 +352,9 @@ contract HyperVIBES {
     // utils
     // ---
 
-    // returns true if a tenant has been setup
-    function _tenantExists(uint256 tenantId) internal view returns (bool) {
-        return tenantConfig[tenantId].token != IERC20(address(0));
+    // returns true if a realm has been setup
+    function _realmExists(uint256 realmId) internal view returns (bool) {
+        return realmConfig[realmId].token != IERC20(address(0));
     }
 
     // returns true if token exists (and is not burnt)

@@ -12,7 +12,7 @@ describe("HyperVIBES", function () {
     await hv.deployed();
     expect(await hv.name()).equals("HyperVIBES");
   });
-  describe("tenant administration", () => {
+  describe("realm administration", () => {
     let hv: HyperVIBES;
     let token: MockERC20;
     let collection: MockERC721;
@@ -32,37 +32,37 @@ describe("HyperVIBES", function () {
       [a0, a1, a2, a3] = accounts.map((a) => a.address);
     });
 
-    const tenantConstraints = () => {
+    const realmConstraints = () => {
       return {
         minDailyRate: 0,
         maxDailyRate: 0,
         minInfusionAmount: 0,
         maxInfusionAmount: 0,
         maxTokenBalance: 0,
-        requireOwnedNft: false,
-        disableMultiInfuse: false,
-        requireInfusionWhitelist: false,
-        requireCollectionWhitelist: false,
+        requireNftIsOwned: false,
+        allowMultiInfuse: false,
+        allowPublicInfusion: false,
+        allowAllCollections: false,
       };
     };
 
-    const createTenant = () => {
+    const createRealm = () => {
       return {
-        name: "test tenant",
+        name: "test realm",
         description: "description",
         admins: [],
         collections: [],
         infusers: [],
         config: {
           token: token.address,
-          constraints: tenantConstraints(),
+          constraints: realmConstraints(),
         },
       };
     };
 
-    const modifyTenant = () => {
+    const modifyRealm = () => {
       return {
-        tenantId: "1",
+        realmId: "1",
         adminsToAdd: [],
         adminsToRemove: [],
         infusersToAdd: [],
@@ -72,59 +72,59 @@ describe("HyperVIBES", function () {
       };
     };
 
-    it("should create a tenant", async () => {
-      await hv.createTenant(createTenant());
-      expect((await hv.tenantConfig("1")).token).equals(token.address);
+    it("should create a realm", async () => {
+      await hv.createRealm(createRealm());
+      expect((await hv.realmConfig("1")).token).equals(token.address);
     });
-    it("should set constraints when creating a tenant", async () => {
+    it("should set constraints when creating a realm", async () => {
       const constraints = {
         // creating non-zero values for all to exercise a worst-case storage
         // usage for gas stats
-        disableMultiInfuse: true,
+        allowMultiInfuse: true,
         maxDailyRate: 500,
         maxInfusionAmount: 500,
         maxTokenBalance: 1000,
         minDailyRate: 50,
         minInfusionAmount: 500,
-        requireCollectionWhitelist: true,
-        requireInfusionWhitelist: true,
-        requireOwnedNft: true,
+        allowAllCollections: true,
+        allowPublicInfusion: true,
+        requireNftIsOwned: true,
       };
-      await hv.createTenant({
-        ...createTenant(),
+      await hv.createRealm({
+        ...createRealm(),
         config: { token: token.address, constraints },
       });
-      const view = await hv.tenantConfig("1");
+      const view = await hv.realmConfig("1");
       expect(view.constraints.maxDailyRate).to.equal(500);
     });
-    it("should revert if attempting to modify a tenant as a non-admin", async () => {
-      await hv.createTenant(createTenant());
-      await expect(hv.modifyTenant(modifyTenant())).to.be.revertedWith(
-        "not tenant admin"
+    it("should revert if attempting to modify a realm as a non-admin", async () => {
+      await hv.createRealm(createRealm());
+      await expect(hv.modifyRealm(modifyRealm())).to.be.revertedWith(
+        "not realm admin"
       );
     });
-    it("should revert if providing zero address for tenant erc20", async () => {
+    it("should revert if providing zero address for realm erc20", async () => {
       await expect(
-        hv.createTenant({
-          ...createTenant(),
-          config: { ...createTenant().config, token: AddressZero },
+        hv.createRealm({
+          ...createRealm(),
+          config: { ...createRealm().config, token: AddressZero },
         })
       ).to.be.revertedWith("invalid token");
     });
-    it("should autoincrement tenant id", async () => {
-      await hv.createTenant(createTenant());
-      await hv.createTenant(createTenant());
-      expect((await hv.tenantConfig("1")).token).equals(token.address);
-      expect((await hv.tenantConfig("2")).token).equals(token.address);
+    it("should autoincrement realm id", async () => {
+      await hv.createRealm(createRealm());
+      await hv.createRealm(createRealm());
+      expect((await hv.realmConfig("1")).token).equals(token.address);
+      expect((await hv.realmConfig("2")).token).equals(token.address);
     });
-    it("should emit a TenantCreated event on tenant create", async () => {
-      await expect(hv.createTenant(createTenant()))
-        .to.emit(hv, "TenantCreated")
-        .withArgs("1", "test tenant", "description");
+    it("should emit a RealmCreated event on realm create", async () => {
+      await expect(hv.createRealm(createRealm()))
+        .to.emit(hv, "RealmCreated")
+        .withArgs("1", "test realm", "description");
     });
-    it("should add initial admins to tenant", async () => {
-      await hv.createTenant({
-        ...createTenant(),
+    it("should add initial admins to realm", async () => {
+      await hv.createRealm({
+        ...createRealm(),
         admins: [a1, a2],
       });
 
@@ -132,9 +132,9 @@ describe("HyperVIBES", function () {
       expect(await hv.isAdmin("1", a2)).to.equal(true);
       expect(await hv.isAdmin("1", a3)).to.equal(false);
     });
-    it("should add initial infusers to tenant", async () => {
-      await hv.createTenant({
-        ...createTenant(),
+    it("should add initial infusers to realm", async () => {
+      await hv.createRealm({
+        ...createRealm(),
         infusers: [a1, a2],
       });
 
@@ -142,113 +142,111 @@ describe("HyperVIBES", function () {
       expect(await hv.isInfuser("1", a2)).to.equal(true);
       expect(await hv.isInfuser("1", a3)).to.equal(false);
     });
-    it("should add initial collections to tenant", async () => {
-      await hv.createTenant({
-        ...createTenant(),
+    it("should add initial collections to realm", async () => {
+      await hv.createRealm({
+        ...createRealm(),
         collections: [collection.address],
       });
       expect(await hv.isCollection("1", collection.address)).to.equal(true);
     });
-    it("should add admins via modifyTenant", async () => {
-      await hv.createTenant({ ...createTenant(), admins: [a0] });
-      await hv.modifyTenant({
-        ...modifyTenant(),
+    it("should add admins via modifyRealm", async () => {
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
+      await hv.modifyRealm({
+        ...modifyRealm(),
         adminsToAdd: [a1],
       });
       expect(await hv.isAdmin("1", a1)).to.equal(true);
     });
-    it("should remove admins via modifyTenant", async () => {
-      await hv.createTenant({ ...createTenant(), admins: [a0] });
-      await hv.modifyTenant({
-        ...modifyTenant(),
+    it("should remove admins via modifyRealm", async () => {
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
+      await hv.modifyRealm({
+        ...modifyRealm(),
         adminsToRemove: [a0],
       });
       expect(await hv.isAdmin("1", a0)).to.equal(false);
     });
-    it("should add infusers via modifyTenant", async () => {
-      await hv.createTenant({ ...createTenant(), admins: [a0] });
-      await hv.modifyTenant({
-        ...modifyTenant(),
+    it("should add infusers via modifyRealm", async () => {
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
+      await hv.modifyRealm({
+        ...modifyRealm(),
         infusersToAdd: [a1],
       });
       expect(await hv.isInfuser("1", a1)).to.equal(true);
     });
-    it("should remove infusers via modifyTenant", async () => {
-      await hv.createTenant({
-        ...createTenant(),
+    it("should remove infusers via modifyRealm", async () => {
+      await hv.createRealm({
+        ...createRealm(),
         admins: [a0],
         infusers: [a1],
       });
       expect(await hv.isInfuser("1", a1)).to.equal(true);
-      await hv.modifyTenant({
-        ...modifyTenant(),
+      await hv.modifyRealm({
+        ...modifyRealm(),
         infusersToRemove: [a1],
       });
       expect(await hv.isInfuser("1", a0)).to.equal(false);
     });
-    it("should add collections via modifyTenant", async () => {
-      await hv.createTenant({ ...createTenant(), admins: [a0] });
-      await hv.modifyTenant({
-        ...modifyTenant(),
+    it("should add collections via modifyRealm", async () => {
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
+      await hv.modifyRealm({
+        ...modifyRealm(),
         collectionsToAdd: [collection.address],
       });
       expect(await hv.isCollection("1", collection.address)).to.equal(true);
     });
-    it("should remove collections via modifyTenant", async () => {
-      await hv.createTenant({
-        ...createTenant(),
+    it("should remove collections via modifyRealm", async () => {
+      await hv.createRealm({
+        ...createRealm(),
         admins: [a0],
         collections: [collection.address],
       });
       expect(await hv.isCollection("1", collection.address)).to.equal(true);
-      await hv.modifyTenant({
-        ...modifyTenant(),
+      await hv.modifyRealm({
+        ...modifyRealm(),
         collectionsToRemove: [collection.address],
       });
       expect(await hv.isCollection("1", collection.address)).to.equal(false);
     });
-    it("should emit an AdminAdded event on modifyTenant", async () => {
-      await hv.createTenant({ ...createTenant(), admins: [a0] });
-      await expect(hv.modifyTenant({ ...modifyTenant(), adminsToAdd: [a1] }))
+    it("should emit an AdminAdded event on modifyRealm", async () => {
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
+      await expect(hv.modifyRealm({ ...modifyRealm(), adminsToAdd: [a1] }))
         .to.emit(hv, "AdminAdded")
         .withArgs("1", a1);
     });
-    it("should emit an AdminRemoved event on modifyTenant", async () => {
-      await hv.createTenant({ ...createTenant(), admins: [a0] });
-      await expect(hv.modifyTenant({ ...modifyTenant(), adminsToRemove: [a0] }))
+    it("should emit an AdminRemoved event on modifyRealm", async () => {
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
+      await expect(hv.modifyRealm({ ...modifyRealm(), adminsToRemove: [a0] }))
         .to.emit(hv, "AdminRemoved")
         .withArgs("1", a0);
     });
-    it("should emit an InfuserAdded event on modifyTenant", async () => {
-      await hv.createTenant({ ...createTenant(), admins: [a0] });
-      await expect(hv.modifyTenant({ ...modifyTenant(), infusersToAdd: [a1] }))
+    it("should emit an InfuserAdded event on modifyRealm", async () => {
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
+      await expect(hv.modifyRealm({ ...modifyRealm(), infusersToAdd: [a1] }))
         .to.emit(hv, "InfuserAdded")
         .withArgs("1", a1);
     });
-    it("should emit an InfuserRemoved event on modifyTenant", async () => {
-      await hv.createTenant({ ...createTenant(), admins: [a0] });
-      await expect(
-        hv.modifyTenant({ ...modifyTenant(), infusersToRemove: [a0] })
-      )
+    it("should emit an InfuserRemoved event on modifyRealm", async () => {
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
+      await expect(hv.modifyRealm({ ...modifyRealm(), infusersToRemove: [a0] }))
         .to.emit(hv, "InfuserRemoved")
         .withArgs("1", a0);
     });
-    it("should emit a CollectionAdded event on modifyTenant", async () => {
-      await hv.createTenant({ ...createTenant(), admins: [a0] });
+    it("should emit a CollectionAdded event on modifyRealm", async () => {
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
       await expect(
-        hv.modifyTenant({
-          ...modifyTenant(),
+        hv.modifyRealm({
+          ...modifyRealm(),
           collectionsToAdd: [collection.address],
         })
       )
         .to.emit(hv, "CollectionAdded")
         .withArgs("1", collection.address);
     });
-    it("should emit an CollectionRemoved event on modifyTenant", async () => {
-      await hv.createTenant({ ...createTenant(), admins: [a0] });
+    it("should emit an CollectionRemoved event on modifyRealm", async () => {
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
       await expect(
-        hv.modifyTenant({
-          ...modifyTenant(),
+        hv.modifyRealm({
+          ...modifyRealm(),
           collectionsToRemove: [collection.address],
         })
       )
@@ -256,25 +254,25 @@ describe("HyperVIBES", function () {
         .withArgs("1", collection.address);
     });
     it("should revert when adding or removing entities with zero address", async () => {
-      await hv.createTenant({ ...createTenant(), admins: [a0] });
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
       await expect(
-        hv.modifyTenant({ ...modifyTenant(), adminsToAdd: [AddressZero] })
+        hv.modifyRealm({ ...modifyRealm(), adminsToAdd: [AddressZero] })
       ).to.be.revertedWith("invalid admin");
       await expect(
-        hv.modifyTenant({ ...modifyTenant(), adminsToRemove: [AddressZero] })
+        hv.modifyRealm({ ...modifyRealm(), adminsToRemove: [AddressZero] })
       ).to.be.revertedWith("invalid admin");
       await expect(
-        hv.modifyTenant({ ...modifyTenant(), infusersToAdd: [AddressZero] })
+        hv.modifyRealm({ ...modifyRealm(), infusersToAdd: [AddressZero] })
       ).to.be.revertedWith("invalid infuser");
       await expect(
-        hv.modifyTenant({ ...modifyTenant(), infusersToRemove: [AddressZero] })
+        hv.modifyRealm({ ...modifyRealm(), infusersToRemove: [AddressZero] })
       ).to.be.revertedWith("invalid infuser");
       await expect(
-        hv.modifyTenant({ ...modifyTenant(), collectionsToAdd: [AddressZero] })
+        hv.modifyRealm({ ...modifyRealm(), collectionsToAdd: [AddressZero] })
       ).to.be.revertedWith("invalid collection");
       await expect(
-        hv.modifyTenant({
-          ...modifyTenant(),
+        hv.modifyRealm({
+          ...modifyRealm(),
           collectionsToRemove: [AddressZero],
         })
       ).to.be.revertedWith("invalid collection");
