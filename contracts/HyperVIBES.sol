@@ -147,6 +147,7 @@ contract HyperVIBES {
     function createRealm(CreateRealmInput memory create) external {
         require(create.config.token != IERC20(address(0)), "invalid token");
 
+        _validateRealmConstraints(create.config.constraints);
         uint256 realmId = nextRealmId++;
         realmConfig[realmId] = create.config;
 
@@ -196,6 +197,11 @@ contract HyperVIBES {
         for (uint256 i = 0; i < input.collectionsToRemove.length; i++) {
             _removeCollection(input.realmId, input.collectionsToRemove[i]);
         }
+    }
+
+    function _validateRealmConstraints(RealmConstraints memory constraints) internal pure {
+        require(constraints.minDailyRate <= constraints.maxDailyRate, "invalid min/max daily rate");
+        require(constraints.minInfusionAmount <= constraints.maxInfusionAmount, "invalid min/max amount");
     }
 
     function _addAdmin(uint256 realmId, address admin) internal {

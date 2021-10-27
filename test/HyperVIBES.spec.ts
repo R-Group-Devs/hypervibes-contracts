@@ -90,6 +90,22 @@ describe("HyperVIBES", function () {
       await hv.createRealm(createRealm());
       expect((await hv.realmConfig("1")).token).equals(token.address);
     });
+    it("should revert if min daily rate exceeds max daily rate", async () => {
+      const create = createRealm();
+      create.config.constraints.minDailyRate = BigNumber.from(500);
+      create.config.constraints.maxDailyRate = BigNumber.from(0);
+      await expect(hv.createRealm(create)).to.be.revertedWith(
+        "invalid min/max daily rate"
+      );
+    });
+    it("should revert if min infusion amount exceeds max infusion amount", async () => {
+      const create = createRealm();
+      create.config.constraints.minInfusionAmount = BigNumber.from(500);
+      create.config.constraints.maxInfusionAmount = BigNumber.from(0);
+      await expect(hv.createRealm(create)).to.be.revertedWith(
+        "invalid min/max amount"
+      );
+    });
     it("should set constraints when creating a realm", async () => {
       const constraints = {
         // creating non-zero values for all to exercise a worst-case storage
@@ -326,6 +342,7 @@ describe("HyperVIBES", function () {
     });
     it("should emit an Infused event", () => {});
     it("should revert on an invalid token id", () => {});
+    it("should revert on an invalid token contract", () => {});
     it("should revert on an invalid collection", () => {});
     it("should revert if amount is too high", () => {});
     it("should revert if amount is too low", () => {});
