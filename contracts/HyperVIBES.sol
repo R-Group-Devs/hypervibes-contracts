@@ -168,6 +168,7 @@ contract HyperVIBES {
 
     // update mutable configuration for a realm
     function modifyRealm(ModifyRealmInput memory input) public {
+        require(_realmExists(input.realmId), "invalid realm");
         require(isAdmin[input.realmId][msg.sender], "not realm admin");
 
         // adds
@@ -202,6 +203,8 @@ contract HyperVIBES {
     function _validateRealmConstraints(RealmConstraints memory constraints) internal pure {
         require(constraints.minDailyRate <= constraints.maxDailyRate, "invalid min/max daily rate");
         require(constraints.minInfusionAmount <= constraints.maxInfusionAmount, "invalid min/max amount");
+        require(constraints.maxInfusionAmount > 0, "invalid max amount");
+        require(constraints.maxTokenBalance > 0, "invalid max token balance");
     }
 
     function _addAdmin(uint256 realmId, address admin) internal {

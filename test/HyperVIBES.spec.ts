@@ -1,11 +1,11 @@
-import { BigNumber, BigNumberish } from "@ethersproject/bignumber";
+import { BigNumber } from "@ethersproject/bignumber";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
 import { HyperVIBES, MockERC20, MockERC721 } from "../typechain";
 
 const { AddressZero } = ethers.constants;
-const { parseUnits, formatUnits } = ethers.utils;
+const { parseUnits } = ethers.utils;
 
 describe("HyperVIBES", function () {
   // ---
@@ -106,6 +106,21 @@ describe("HyperVIBES", function () {
         "invalid min/max amount"
       );
     });
+    it("should revert if max infusion amount is zero", async () => {
+      const create = createRealm();
+      create.config.constraints.minInfusionAmount = BigNumber.from(0);
+      create.config.constraints.maxInfusionAmount = BigNumber.from(0);
+      await expect(hv.createRealm(create)).to.be.revertedWith(
+        "invalid max amount"
+      );
+    });
+    it("should revert if max token balance is zero", async () => {
+      const create = createRealm();
+      create.config.constraints.maxTokenBalance = BigNumber.from(0);
+      await expect(hv.createRealm(create)).to.be.revertedWith(
+        "invalid max token balance"
+      );
+    });
     it("should set constraints when creating a realm", async () => {
       const constraints = {
         // creating non-zero values for all to exercise a worst-case storage
@@ -132,6 +147,12 @@ describe("HyperVIBES", function () {
       await expect(hv.modifyRealm(modifyRealm())).to.be.revertedWith(
         "not realm admin"
       );
+    });
+    it("should revert if attempting to modify a non-existant realm", async () => {
+      await hv.createRealm(createRealm());
+      await expect(
+        hv.modifyRealm({ ...modifyRealm(), realmId: "420" })
+      ).to.be.revertedWith("invalid realm");
     });
     it("should revert if providing zero address for realm erc20", async () => {
       await expect(
