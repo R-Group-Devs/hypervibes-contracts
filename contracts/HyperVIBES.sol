@@ -367,12 +367,12 @@ contract HyperVIBES {
     }
 
     // returns true if token exists (and is not burnt)
-    function _isTokenValid(IERC721 nft, uint256 tokenId)
+    function _isTokenValid(IERC721 collection, uint256 tokenId)
         internal
         view
         returns (bool)
     {
-        try nft.ownerOf(tokenId) returns (address) {
+        try collection.ownerOf(tokenId) returns (address) {
             return true;
         } catch {
             return false;
@@ -381,14 +381,14 @@ contract HyperVIBES {
 
     // returns true if operator can manage tokenId
     function _isApprovedOrOwner(
-        IERC721 nft,
+        IERC721 collection,
         uint256 tokenId,
         address operator
     ) internal view returns (bool) {
-        address owner = nft.ownerOf(tokenId);
+        address owner = collection.ownerOf(tokenId);
         return
             owner == operator ||
-            nft.getApproved(tokenId) == operator ||
-            nft.isApprovedForAll(owner, operator);
+            collection.getApproved(tokenId) == operator ||
+            collection.isApprovedForAll(owner, operator);
     }
 }
