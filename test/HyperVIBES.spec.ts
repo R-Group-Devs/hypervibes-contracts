@@ -506,5 +506,8 @@ describe("HyperVIBES", function () {
     it("should only claim one day of tokens after one day", async () => {});
     it("should claim entire balance after tokens fully mined out", async () => {});
     it("should only allow claiming newly mined tokens after re-infusing an empty nft", async () => {});
+    it("should reduce claimable following a claim", async () => {});
+    it("should not allow claiming immediately after claiming", async () => {});
+    it("should handle partial claiming", async () => {});
   });
 });
