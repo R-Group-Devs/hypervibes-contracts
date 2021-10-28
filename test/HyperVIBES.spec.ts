@@ -35,11 +35,11 @@ describe("HyperVIBES", function () {
 
   const realmConstraints = () => {
     return {
-      minDailyRate: parseUnits("1000"),
+      minDailyRate: parseUnits("0"),
       maxDailyRate: parseUnits("1000"),
-      minInfusionAmount: parseUnits("50000"),
-      maxInfusionAmount: parseUnits("1095000"),
-      maxTokenBalance: parseUnits("1095000"),
+      minInfusionAmount: parseUnits("0"),
+      maxInfusionAmount: parseUnits("100000"),
+      maxTokenBalance: parseUnits("100000"),
       requireNftIsOwned: true,
       allowMultiInfuse: false,
       allowPublicInfusion: false,
@@ -330,6 +330,10 @@ describe("HyperVIBES", function () {
     });
   });
 
+  // ---
+  // end-users
+  // ---
+
   describe("infusion", () => {
     // ---
     // fixtures
@@ -392,13 +396,84 @@ describe("HyperVIBES", function () {
     it("should revert if daily rate too high", () => {});
     it("should revert if daily rate too low", () => {});
   });
-  describe("claiming", () => {
-    it("should claim tokens", async () => {});
+  describe.only("claiming", () => {
+    // ---
+    // fixtures
+    // ---
+
+    const infuse = () => {
+      return {
+        realmId: "1",
+        collection: collection.address,
+        tokenId: "420",
+        infuser: a0,
+        dailyRate: parseUnits("1000"),
+        amount: parseUnits("10000"),
+        comment: "comment",
+      };
+    };
+
+    const claim = () => {
+      return {
+        realmId: "1",
+        collection: collection.address,
+        tokenId: "420",
+        amount: parseUnits("100000"), // all
+      };
+    };
+
+    const mineNextBlock = () => ethers.provider.send("evm_mine", []);
+
+    const increaseTimestampAndMineNextBlock = async (
+      offsetInSeconds: number
+    ) => {
+      await ethers.provider.send("evm_increaseTime", [offsetInSeconds]);
+      await mineNextBlock();
+    };
+
+    beforeEach(async () => {
+      await ethers.provider.send("evm_setAutomine", [false]);
+    });
+
+    afterEach(async () => {
+      await ethers.provider.send("evm_setAutomine", [true]);
+    });
+
+    // ---
+    // tests
+    // ---
+    it("should claim tokens", async () => {
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await mineNextBlock();
+
+      // jump 1 day
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24);
+      await hv.claim({ ...claim(), amount: parseUnits("1000") });
+      await mineNextBlock();
+      expect(await token.balanceOf(a0)).to.equal(parseUnits("1000"));
+
+      // jump 1 day
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24);
+      await hv.claim({ ...claim(), amount: parseUnits("1000") });
+      await mineNextBlock();
+      expect(await token.balanceOf(a0)).to.equal(parseUnits("2000"));
+
+      // jump 100 days
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 100);
+      await hv.claim({ ...claim(), amount: parseUnits("10000") });
+      await mineNextBlock();
+      expect(await token.balanceOf(a0)).to.equal(parseUnits("10000"));
+    });
     it("should emit a Claimed event on claim", async () => {});
     it("should revert if nothing to claim", async () => {});
     it("should revert if not token owner", async () => {});
     it("should allow claiming if approved", async () => {});
     it("should allow claiming if approved for all", async () => {});
     it("should revert if attempting to claim from un-infused token", async () => {});
+    it("should only claim one day of tokens after one day", async () => {});
+    it("should claim entire balance after tokens fully mined out", async () => {});
   });
 });
