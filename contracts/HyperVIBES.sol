@@ -249,8 +249,45 @@ contract HyperVIBES {
 
     function infuse(InfuseInput memory input) external {
         require(_isTokenValid(input.collection, input.tokenId), "invalid token");
+        require(_realmExists(input.realmId), "invalid realm");
 
         TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
+        RealmConfig memory realm = realmConfig[input.realmId];
+
+        // initialize token storage if first infusion
+        if (data.lastClaimAt == 0) {
+            data.dailyRate = input.dailyRate;
+            data.lastClaimAt = block.timestamp;
+        }
+
+        // determine if we need to clamp the amount based on maxTokenBalance
+        uint256 nextBalance = data.balance + input.amount;
+        uint256 clampedBalance = nextBalance > realm.constraints.maxTokenBalance
+            ? realm.constraints.maxTokenBalance
+            : nextBalance;
+        uint256 amountToTransfer = clampedBalance - data.balance;
+
+        // TODO: reentrancy risk!!!!!?
+        // pull tokens from msg sender into the contract -- INFUSION!
+        realm.token.transferFrom(msg.sender, address(this), amountToTransfer);
+        data.balance += amountToTransfer;
+
+        emit Infused(
+            input.realmId,
+            input.collection,
+            input.tokenId,
+            input.infuser,
+            input.amount,
+            input.dailyRate,
+            input.comment
+        );
+    }
+
+    function _validateInfusion(InfuseInput memory input) internal view {
+        require(_isTokenValid(input.collection, input.tokenId), "invalid token");
+        require(_realmExists(input.realmId), "invalid realm");
+
+        TokenData memory data = tokenData[input.realmId][input.collection][input.tokenId];
         RealmConfig memory realm = realmConfig[input.realmId];
 
         // assert amount to be infused is within the min and max constraints
@@ -270,7 +307,6 @@ contract HyperVIBES {
         if (data.lastClaimAt != 0) {
             require(data.dailyRate == input.dailyRate, "daily rate is immutable");
             require(realm.constraints.allowMultiInfuse, "multi infuse disabled");
-
             // intentionally ommitting checks to min/max daily rate -- its
             // possible realm configuration has changed since the initial
             // infusion, we don't want to prevent "topping off" the NFT if this
@@ -279,28 +315,9 @@ contract HyperVIBES {
             // else ensure daily rate is within min/max constraints
             require(input.dailyRate >= realm.constraints.minDailyRate, "daily rate too low");
             require(input.dailyRate <= realm.constraints.maxDailyRate, "daily rate too high");
-
-            // initialize token storage
-            data.dailyRate = input.dailyRate;
-            data.lastClaimAt = block.timestamp;
         }
 
-        // TODO: clamp amount based on balance and max balance
-
-        // infuse
-        // TODO: reentrancy risk!!!!!
-        realm.token.transferFrom(msg.sender, address(this), input.amount);
-        data.balance += input.amount;
-
-        emit Infused(
-            input.realmId,
-            input.collection,
-            input.tokenId,
-            input.infuser,
-            input.amount,
-            input.dailyRate,
-            input.comment
-        );
+        // we made it! 🚀 LFG!
     }
 
     // ---

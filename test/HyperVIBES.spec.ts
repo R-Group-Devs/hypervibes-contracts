@@ -351,7 +351,7 @@ describe("HyperVIBES", function () {
     // tests
     // ---
 
-    it("should infuse tokens from msg.sender to token", async () => {
+    it("should infuse tokens from msg.sender to nft", async () => {
       await hv.createRealm({ ...createRealm(), infusers: [a0] });
       await token.mint(parseUnits("60000"));
       await collection.mint("420");
@@ -360,11 +360,27 @@ describe("HyperVIBES", function () {
       expect(
         (await hv.tokenData("1", collection.address, "420")).balance
       ).to.equal(parseUnits("50000"));
+      expect(await token.balanceOf(hv.address)).to.equal(parseUnits("50000"));
+    });
+    it("should clamp infused amount to to max token balance", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+
+      const create = createRealm();
+      create.config.constraints.maxTokenBalance = parseUnits("60000");
+      create.config.constraints.allowPublicInfusion = true;
+      await hv.createRealm(create);
+      await hv.infuse({ ...infuse(), amount: parseUnits("100000") });
+
+      expect(await token.balanceOf(a0)).to.equal(parseUnits("40000")); // only took 60000
+      expect(
+        (await hv.tokenData("1", collection.address, "420")).balance
+      ).to.equal(parseUnits("60000"));
     });
     it("should emit an Infused event", () => {});
     it("should revert on an invalid token id", () => {});
     it("should revert on an invalid token contract", () => {});
-    it("should revert on an invalid collection", () => {});
+    it("should revert on an invalid realm", () => {});
     it("should revert if amount is too high", () => {});
     it("should revert if amount is too low", () => {});
     it("should revert if nft not owned by infuser and requireNftIsOwned is true", () => {});
