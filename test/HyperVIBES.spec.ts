@@ -423,6 +423,8 @@ describe("HyperVIBES", function () {
     };
 
     const mineNextBlock = () => ethers.provider.send("evm_mine", []);
+    const setAutomine = (set = true) =>
+      ethers.provider.send("evm_setAutomine", [set]);
 
     const increaseTimestampAndMineNextBlock = async (
       offsetInSeconds: number
@@ -431,13 +433,8 @@ describe("HyperVIBES", function () {
       await mineNextBlock();
     };
 
-    beforeEach(async () => {
-      await ethers.provider.send("evm_setAutomine", [false]);
-    });
-
-    afterEach(async () => {
-      await ethers.provider.send("evm_setAutomine", [true]);
-    });
+    beforeEach(() => setAutomine(false));
+    afterEach(() => setAutomine(true));
 
     // ---
     // tests
@@ -467,13 +464,47 @@ describe("HyperVIBES", function () {
       await mineNextBlock();
       expect(await token.balanceOf(a0)).to.equal(parseUnits("10000"));
     });
-    it("should emit a Claimed event on claim", async () => {});
-    it("should revert if nothing to claim", async () => {});
-    it("should revert if not token owner", async () => {});
+    it("should emit a Claimed event on claim", async () => {
+      await setAutomine();
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24);
+
+      await expect(hv.claim({ ...claim(), amount: parseUnits("1000") }))
+        .to.emit(hv, "Claimed")
+        .withArgs("1", collection.address, "420", parseUnits("1000"));
+    });
+    it("should revert if nothing to claim", async () => {
+      await setAutomine();
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 1000);
+      await hv.claim({ ...claim(), amount: parseUnits("10000") }); // claim all
+      await expect(
+        hv.claim({ ...claim(), amount: parseUnits("10000") })
+      ).to.be.revertedWith("nothing to claim");
+    });
+    it("should revert if not token owner", async () => {
+      await setAutomine();
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 1000);
+      const hv1 = hv.connect(accounts[1]);
+      await expect(
+        hv1.claim({ ...claim(), amount: "10000" })
+      ).to.be.revertedWith("not owner or approved");
+    });
     it("should allow claiming if approved", async () => {});
     it("should allow claiming if approved for all", async () => {});
     it("should revert if attempting to claim from un-infused token", async () => {});
     it("should only claim one day of tokens after one day", async () => {});
     it("should claim entire balance after tokens fully mined out", async () => {});
+    it("should only allow claiming newly mined tokens after re-infusing an empty nft", async () => {});
   });
 });
