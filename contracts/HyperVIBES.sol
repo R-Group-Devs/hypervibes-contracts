@@ -248,11 +248,11 @@ contract HyperVIBES {
     // ---
 
     function infuse(InfuseInput memory input) external {
-        require(_isTokenValid(input.collection, input.tokenId), "invalid token");
-        require(_realmExists(input.realmId), "invalid realm");
-
         TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
         RealmConfig memory realm = realmConfig[input.realmId];
+
+        // ensure input is valid as a function of realm state, token state, and infusion input
+        _validateInfusion(input, data, realm);
 
         // initialize token storage if first infusion
         if (data.lastClaimAt == 0) {
@@ -267,10 +267,10 @@ contract HyperVIBES {
             : nextBalance;
         uint256 amountToTransfer = clampedBalance - data.balance;
 
-        // TODO: reentrancy risk!!!!!?
-        // pull tokens from msg sender into the contract -- INFUSION!
-        realm.token.transferFrom(msg.sender, address(this), amountToTransfer);
+        // pull tokens from msg sender into the contract, executing transferFrom
+        // last to ensure no malicious erc-20 can cause re-entrancy issues
         data.balance += amountToTransfer;
+        realm.token.transferFrom(msg.sender, address(this), amountToTransfer);
 
         emit Infused(
             input.realmId,
@@ -283,12 +283,9 @@ contract HyperVIBES {
         );
     }
 
-    function _validateInfusion(InfuseInput memory input) internal view {
+    function _validateInfusion(InfuseInput memory input, TokenData memory data, RealmConfig memory realm) internal view {
         require(_isTokenValid(input.collection, input.tokenId), "invalid token");
         require(_realmExists(input.realmId), "invalid realm");
-
-        TokenData memory data = tokenData[input.realmId][input.collection][input.tokenId];
-        RealmConfig memory realm = realmConfig[input.realmId];
 
         // assert amount to be infused is within the min and max constraints
         require(input.amount >= realm.constraints.minInfusionAmount, "amount too low");
@@ -341,10 +338,10 @@ contract HyperVIBES {
         // claim at = last + (to claim / rate) * 1 day, rewritten for div last
         uint256 claimAt = data.lastClaimAt + (toClaim * 1 days) / data.dailyRate;
 
-        // update balances and execute ERC-20 transfer
+        // update balances and execute ERC-20 transfer, calling transferFrom
+        // last to prevent any malicious erc-20 from causing re-entrancy issues
         data.balance -= toClaim;
         data.lastClaimAt = claimAt;
-        // TODO: reentrancy risk!!!!!
         realmConfig[input.realmId].token.transfer(msg.sender, toClaim);
 
         emit Claimed(input.realmId, input.collection, input.tokenId, toClaim);
