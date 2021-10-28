@@ -394,9 +394,11 @@ describe("HyperVIBES", function () {
   });
   describe("claiming", () => {
     it("should claim tokens", async () => {});
+    it("should emit a Claimed event on claim", async () => {});
     it("should revert if nothing to claim", async () => {});
     it("should revert if not token owner", async () => {});
     it("should allow claiming if approved", async () => {});
     it("should allow claiming if approved for all", async () => {});
+    it("should revert if attempting to claim from un-infused token", async () => {});
   });
 });

@@ -327,13 +327,14 @@ contract HyperVIBES {
     function claim(ClaimInput memory input) public {
         require(_isApprovedOrOwner(input.collection, input.tokenId, msg.sender), "not owner or approved");
 
+        TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
+        require(data.lastClaimAt != 0, "token not infused");
+
         // compute how much we can claim, only pay attention to amount if its less
         // than available
         uint256 availableToClaim = _claimable(input.realmId, input.collection, input.tokenId);
         uint256 toClaim = input.amount < availableToClaim ? input.amount : availableToClaim;
         require(toClaim > 0, "nothing to claim");
-
-        TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
 
         // claim only as far up as we need to get our amount... basically "advances"
         // the lastClaim timestamp the exact amount needed to provide the amount
