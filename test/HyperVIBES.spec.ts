@@ -392,4 +392,11 @@ describe("HyperVIBES", function () {
     it("should revert if daily rate too high", () => {});
     it("should revert if daily rate too low", () => {});
   });
+  describe("claiming", () => {
+    it("should claim tokens", async () => {});
+    it("should revert if nothing to claim", async () => {});
+    it("should revert if not token owner", async () => {});
+    it("should allow claiming if approved", async () => {});
+    it("should allow claiming if approved for all", async () => {});
+  });
 });
