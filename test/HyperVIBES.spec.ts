@@ -369,6 +369,7 @@ describe("HyperVIBES", function () {
         (await hv.tokenData("1", collection.address, "420")).balance
       ).to.equal(parseUnits("60000"));
     });
+    it("should handle multi infusion", async () => {});
     it("should emit an Infused event", () => {});
     it("should revert on an invalid token id", () => {});
     it("should revert on an invalid token contract", () => {});
