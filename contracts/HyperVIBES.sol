@@ -43,12 +43,12 @@ struct RealmConstraints {
     // if true, an nft can be infused multiple times
     bool allowMultiInfuse;
 
-    // if true, any msg.sender may infuse if msg.sender = infuser. Delegated /
-    // proxy infusions must always have the infuser on the whitelist
+    // if true, any msg.sender may infuse. If false, msg.sender must be on the
+    // allowlist
     bool allowPublicInfusion;
 
     // if true, any NFT from any collection may be infused. If false, contract
-    // must be on the whitelist
+    // must be on the allowlist
     bool allowAllCollections;
 }
 
@@ -113,6 +113,9 @@ contract HyperVIBES {
     mapping(uint256 => mapping(IERC721 => mapping(uint256 => TokenData)))
         public tokenData;
 
+    // realm ID -> operator -> infuser -> (is allowed infusion proxy flag)
+    mapping(uint256 => mapping(address => mapping(address => bool))) public isInfusionProxy;
+
     uint256 public nextRealmId = 1;
 
     // ---
@@ -132,6 +135,10 @@ contract HyperVIBES {
     event CollectionAdded(uint256 indexed realmId, IERC721 indexed collection);
 
     event CollectionRemoved(uint256 indexed realmId, IERC721 indexed collection);
+
+    event InfusionProxyAdded(uint256 indexed realmId, address indexed proxy);
+
+    event InfusionProxyRemoved(uint256 indexed realmId, address indexed proxy);
 
     event Infused(
         uint256 indexed realmId,
@@ -211,6 +218,7 @@ contract HyperVIBES {
         }
     }
 
+    // check for constraint values that are nonsensical, revert if a problem
     function _validateRealmConstraints(RealmConstraints memory constraints) internal pure {
         require(constraints.minDailyRate <= constraints.maxDailyRate, "invalid min/max daily rate");
         require(constraints.minInfusionAmount <= constraints.maxInfusionAmount, "invalid min/max amount");
@@ -271,6 +279,11 @@ contract HyperVIBES {
             data.dailyRate = input.dailyRate;
             data.lastClaimAt = block.timestamp;
         }
+        // re-set last claim to now if this is empty, else it will effectivel
+        // pre-mine the time since the last claim
+        else if (data.balance == 0) {
+            data.lastClaimAt = block.timestamp;
+        }
 
         // determine if we need to clamp the amount based on maxTokenBalance
         uint256 nextBalance = data.balance + input.amount;
@@ -303,14 +316,15 @@ contract HyperVIBES {
         require(input.amount >= realm.constraints.minInfusionAmount, "amount too low");
         require(input.amount <= realm.constraints.maxInfusionAmount, "amount too high");
 
-        bool isPublicInfusion = msg.sender == input.infuser && realm.constraints.allowPublicInfusion;
         bool isOwnedByInfuser = input.collection.ownerOf(input.tokenId) == input.infuser;
-        bool isOnInfuserWhitelist = isInfuser[input.realmId][msg.sender];
-        bool isOnCollectionWhitelist = isCollection[input.realmId][input.collection];
+        bool isOnInfuserAllowlist = isInfuser[input.realmId][msg.sender];
+        bool isOnCollectionAllowlist = isCollection[input.realmId][input.collection];
+        bool isValidInfusionProxy = isInfusionProxy[input.realmId][msg.sender][input.infuser];
 
         require(isOwnedByInfuser || !realm.constraints.requireNftIsOwned, "nft not owned by infuser");
-        require(isOnInfuserWhitelist || isPublicInfusion, "invalid infuser");
-        require(isOnCollectionWhitelist || realm.constraints.allowAllCollections, "invalid collection");
+        require(isOnInfuserAllowlist || realm.constraints.allowPublicInfusion, "invalid infuser");
+        require(isOnCollectionAllowlist || realm.constraints.allowAllCollections, "invalid collection");
+        require(isValidInfusionProxy || msg.sender == input.infuser, "invalid proxy infusion");
 
         // if already infused...
         if (data.lastClaimAt != 0) {
@@ -326,7 +340,22 @@ contract HyperVIBES {
             require(input.dailyRate <= realm.constraints.maxDailyRate, "daily rate too high");
         }
 
+        // if token balance is already at max, clamped amount will be zero
+        require(data.balance < realm.constraints.maxTokenBalance, "max token balance");
+
         // we made it! 🚀 LFG!
+    }
+
+    // allower operator to infuse on behalf of msg.sender for a specific realm
+    function allowInfusionProxy(uint256 realmId, address proxy) external {
+        isInfusionProxy[realmId][proxy][msg.sender] = true;
+        emit InfusionProxyAdded(realmId, proxy);
+    }
+
+    // deny operator the ability to infuse on behalf of msg.sender for a specific realm
+    function denyInfusionProxy(uint256 realmId, address proxy) external {
+        delete isInfusionProxy[realmId][proxy][msg.sender];
+        emit InfusionProxyRemoved(realmId, proxy);
     }
 
     // ---

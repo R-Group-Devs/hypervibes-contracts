@@ -377,13 +377,19 @@ describe("HyperVIBES", function () {
     it("should revert if amount is too high", () => {});
     it("should revert if amount is too low", () => {});
     it("should revert if nft not owned by infuser and requireNftIsOwned is true", () => {});
-    it("should revert if attempting delegated infusion by non-infuser", () => {});
+    it("should revert if attempting proxy infusion by non-proxy", () => {});
+    it("should revert if attempting proxy infusion by non-proxy thats on the allowlist", () => {});
     it("should revert if attempting public infusion when allowPublicInfusion is false", () => {});
-    it("should revert if infusing a non-whitelisted collection and allowAllCollections is false", () => {});
+    it("should revert if infusing a non-allowed collection and allowAllCollections is false", () => {});
     it("should revert if dailyRate is different from initial value on subsequent infusions", () => {});
     it("should revert if infusing a second time when allowMultiInfuse is false", () => {});
     it("should revert if daily rate too high", () => {});
     it("should revert if daily rate too low", () => {});
+    it("should revert if clamped infusion amount is zero on multi-infuse", async () => {});
+  });
+  describe("infusion proxy management", () => {
+    it("should emit an InfusionProxyAdded event when adding a proxy", async () => {});
+    it("should emit an InfusionProxyRemoved event when removing a proxy", async () => {});
   });
   describe("claiming", () => {
     // ---
