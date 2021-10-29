@@ -365,7 +365,6 @@ contract HyperVIBES {
     // ---
 
     function claim(ClaimInput memory input) public {
-        require(input.amount >= realmConfig[input.realmId].constraints.minClaimAmount, "amount too low");
         require(_isApprovedOrOwner(input.collection, input.tokenId, msg.sender), "not owner or approved");
 
         TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
@@ -375,6 +374,7 @@ contract HyperVIBES {
         // than available
         uint256 availableToClaim = _claimable(input.realmId, input.collection, input.tokenId);
         uint256 toClaim = input.amount < availableToClaim ? input.amount : availableToClaim;
+        require(toClaim >= realmConfig[input.realmId].constraints.minClaimAmount, "amount too low");
         require(toClaim > 0, "nothing to claim");
 
         // claim only as far up as we need to get our amount... basically "advances"

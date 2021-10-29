@@ -536,6 +536,19 @@ describe("HyperVIBES", function () {
         hv.claim({ ...claim(), amount: parseUnits("50") })
       ).to.be.revertedWith("amount too low");
     });
+    it("should revert if claiming less than minClaimAmount when amount is gt token balance", async () => {
+      await setAutomine();
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.minClaimAmount = parseUnits("1000");
+      await hv.createRealm(create);
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await increaseTimestampAndMineNextBlock(60 * 60);
+      await expect(
+        hv.claim({ ...claim(), amount: parseUnits("100000") })
+      ).to.be.revertedWith("amount too low");
+    });
     it("should only claim one day of tokens after one day", async () => {});
     it("should claim entire balance after tokens fully mined out", async () => {});
     it("should only allow claiming newly mined tokens after re-infusing an empty nft", async () => {});
