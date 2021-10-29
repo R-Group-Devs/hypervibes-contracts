@@ -38,7 +38,8 @@ contract ReferenceERC721 is ERC721Enumerable {
         // mint however you are normally
         _mint(_msgSender(), tokenId);
 
-        // then infuse with hyper vibes
+        // then infuse with hyper vibes -- the tokens will be transfered from
+        // the ERC-721 address into the HyperVIBES protocol
         hyperVIBES.infuse(InfuseInput({
           // must be set to configured realm
           realmId: realmId,
@@ -52,7 +53,8 @@ contract ReferenceERC721 is ERC721Enumerable {
           // address
           infuser: address(this),
 
-          // based on desired behavior and realm config
+          // based on desired behavior and realm config. using ether keyword
+          // here is ofc only correct if the ERC-20 being used has decimals = 18
           dailyRate: 1_000 ether,
           amount: 100_000 ether,
 

@@ -2,7 +2,12 @@ import { BigNumber } from "@ethersproject/bignumber";
 import { SignerWithAddress } from "@nomiclabs/hardhat-ethers/signers";
 import { expect } from "chai";
 import { ethers } from "hardhat";
-import { HyperVIBES, MockERC20, MockERC721 } from "../typechain";
+import {
+  HyperVIBES,
+  MockERC20,
+  MockERC721,
+  ReferenceERC721,
+} from "../typechain";
 
 const { AddressZero } = ethers.constants;
 const { parseUnits } = ethers.utils;
@@ -517,5 +522,70 @@ describe("HyperVIBES", function () {
     it("should reduce claimable following a claim", async () => {});
     it("should not allow claiming immediately after claiming", async () => {});
     it("should handle partial claiming", async () => {});
+  });
+  describe("reference 721 contract", () => {
+    let ref721: ReferenceERC721;
+
+    beforeEach(async () => {
+      const ReferenceERC721 = await ethers.getContractFactory(
+        "ReferenceERC721"
+      );
+      ref721 = await ReferenceERC721.deploy(token.address);
+    });
+
+    // ---
+    // testing integration with an ERC721 that infuses on mint
+    // ---
+
+    it("should infuse on mint", async () => {
+      // create the realm -- this will be done via the UI
+      await hv.createRealm({
+        ...createRealm(),
+        admins: [], // no admins, keeps things safe but prevents any modifications
+        collections: [ref721.address], // only nfts from the 721 can be infused
+        infusers: [ref721.address], // only the 721 contract can infuse
+        config: {
+          ...createRealm().config,
+          constraints: {
+            ...realmConstraints(),
+            requireNftIsOwned: false, // the 721 will infuse after mint, will be in minters wallet
+            allowMultiInfuse: false, // not needed
+            allowPublicInfusion: false, // dont want anyone else infusing on this realm
+            allowAllCollections: false, // only want our 721 involved for now
+          },
+        },
+      });
+
+      // point the collection at hv -- needs to just be done once
+      await ref721.setHyperVIBES("1", hv.address);
+
+      // stock the 721 with tokens -- need to provide (tokens per NFT * total NFT) tokens
+      await token.mint(parseUnits("300000"));
+      await token.transfer(ref721.address, parseUnits("300000"));
+
+      // mint 3 tokens, checking that they're properly infused, and that the tokens have left the erc721
+
+      await ref721.mint("420");
+      expect((await hv.tokenData("1", ref721.address, "420")).balance).to.equal(
+        parseUnits("100000")
+      );
+      expect(await token.balanceOf(ref721.address)).to.equal(
+        parseUnits("200000")
+      );
+
+      await ref721.mint("69");
+      expect((await hv.tokenData("1", ref721.address, "69")).balance).to.equal(
+        parseUnits("100000")
+      );
+      expect(await token.balanceOf(ref721.address)).to.equal(
+        parseUnits("100000")
+      );
+
+      await ref721.mint("123");
+      expect((await hv.tokenData("1", ref721.address, "123")).balance).to.equal(
+        parseUnits("100000")
+      );
+      expect(await token.balanceOf(ref721.address)).to.equal(parseUnits("0"));
+    });
   });
 });
