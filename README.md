@@ -71,3 +71,9 @@ yarn verify --network ropsten $CONTRACT_ADDRESS
 ```
 
 Verification may fail if run too quickly after contract deployment.
+
+To deploy test fixtures and contracts (only needed for testnet):
+
+```
+yarn deploy:fixtures --network ropsten
+```
