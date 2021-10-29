@@ -348,12 +348,14 @@ contract HyperVIBES {
 
     // allower operator to infuse on behalf of msg.sender for a specific realm
     function allowInfusionProxy(uint256 realmId, address proxy) external {
+        require(_realmExists(realmId), "invalid realm");
         isInfusionProxy[realmId][proxy][msg.sender] = true;
         emit InfusionProxyAdded(realmId, proxy);
     }
 
     // deny operator the ability to infuse on behalf of msg.sender for a specific realm
     function denyInfusionProxy(uint256 realmId, address proxy) external {
+        require(_realmExists(realmId), "invalid realm");
         delete isInfusionProxy[realmId][proxy][msg.sender];
         emit InfusionProxyRemoved(realmId, proxy);
     }

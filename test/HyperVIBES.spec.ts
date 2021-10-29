@@ -393,8 +393,28 @@ describe("HyperVIBES", function () {
     it("should revert if clamped infusion amount is zero on multi-infuse", async () => {});
   });
   describe("infusion proxy management", () => {
-    it("should emit an InfusionProxyAdded event when adding a proxy", async () => {});
-    it("should emit an InfusionProxyRemoved event when removing a proxy", async () => {});
+    it("should emit an InfusionProxyAdded event when adding a proxy", async () => {
+      await hv.createRealm(createRealm());
+      await expect(hv.allowInfusionProxy("1", a1))
+        .to.emit(hv, "InfusionProxyAdded")
+        .withArgs("1", a1);
+    });
+    it("should emit an InfusionProxyRemoved event when removing a proxy", async () => {
+      await hv.createRealm(createRealm());
+      await expect(hv.denyInfusionProxy("1", a1))
+        .to.emit(hv, "InfusionProxyRemoved")
+        .withArgs("1", a1);
+    });
+    it("should revert if providing an invalid realm to allowInfusionProxy", async () => {
+      await expect(hv.allowInfusionProxy("1", a1)).to.be.revertedWith(
+        "invalid realm"
+      );
+    });
+    it("should revert if providing an invalid realm to denyInfusionProxy", async () => {
+      await expect(hv.denyInfusionProxy("1", a1)).to.be.revertedWith(
+        "invalid realm"
+      );
+    });
   });
   describe("claiming", () => {
     // ---
