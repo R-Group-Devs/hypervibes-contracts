@@ -21,21 +21,32 @@ struct RealmConfig {
 struct RealmConstraints {
     // token mining rate must be at least min
     uint256 minDailyRate;
+
     // token mining rate cannot exceed max
     uint256 maxDailyRate;
+
     // min amount allowed for a single infusion
     uint256 minInfusionAmount;
+
     // max amount allowed for a single infusion
     uint256 maxInfusionAmount;
+
     // token cannot have a total infused balance greater than `maxTokenBalance`
     uint256 maxTokenBalance;
+
+    // cannot execute a claim for less than this amount
+    uint256 minClaimAmount;
+
     // if true, infuser must own the NFT being infused
     bool requireNftIsOwned;
+
     // if true, an nft can be infused multiple times
     bool allowMultiInfuse;
+
     // if true, any msg.sender may infuse if msg.sender = infuser. Delegated /
     // proxy infusions must always have the infuser on the whitelist
     bool allowPublicInfusion;
+
     // if true, any NFT from any collection may be infused. If false, contract
     // must be on the whitelist
     bool allowAllCollections;
@@ -205,6 +216,7 @@ contract HyperVIBES {
         require(constraints.minInfusionAmount <= constraints.maxInfusionAmount, "invalid min/max amount");
         require(constraints.maxInfusionAmount > 0, "invalid max amount");
         require(constraints.maxTokenBalance > 0, "invalid max token balance");
+        require(constraints.minClaimAmount <= constraints.maxTokenBalance, "invalid minClaimAmount");
     }
 
     function _addAdmin(uint256 realmId, address admin) internal {
@@ -322,6 +334,7 @@ contract HyperVIBES {
     // ---
 
     function claim(ClaimInput memory input) public {
+        require(input.amount >= realmConfig[input.realmId].constraints.minClaimAmount, "amount too low");
         require(_isApprovedOrOwner(input.collection, input.tokenId, msg.sender), "not owner or approved");
 
         TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];

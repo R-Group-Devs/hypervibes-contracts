@@ -40,6 +40,7 @@ describe("HyperVIBES", function () {
       minInfusionAmount: parseUnits("0"),
       maxInfusionAmount: parseUnits("100000"),
       maxTokenBalance: parseUnits("100000"),
+      minClaimAmount: parseUnits("0"),
       requireNftIsOwned: true,
       allowMultiInfuse: false,
       allowPublicInfusion: false,
@@ -98,6 +99,14 @@ describe("HyperVIBES", function () {
         "invalid min/max daily rate"
       );
     });
+    it("should revert if minClaimAmount is greater than maxTokenBalance", async () => {
+      const create = createRealm();
+      create.config.constraints.maxTokenBalance = parseUnits("1000");
+      create.config.constraints.minClaimAmount = parseUnits("1001");
+      await expect(hv.createRealm(create)).to.be.revertedWith(
+        "invalid minClaimAmount"
+      );
+    });
     it("should revert if min infusion amount exceeds max infusion amount", async () => {
       const create = createRealm();
       create.config.constraints.minInfusionAmount = BigNumber.from(500);
@@ -120,27 +129,6 @@ describe("HyperVIBES", function () {
       await expect(hv.createRealm(create)).to.be.revertedWith(
         "invalid max token balance"
       );
-    });
-    it("should set constraints when creating a realm", async () => {
-      const constraints = {
-        // creating non-zero values for all to exercise a worst-case storage
-        // usage for gas stats
-        allowMultiInfuse: true,
-        maxDailyRate: 500,
-        maxInfusionAmount: 500,
-        maxTokenBalance: 1000,
-        minDailyRate: 50,
-        minInfusionAmount: 500,
-        allowAllCollections: true,
-        allowPublicInfusion: true,
-        requireNftIsOwned: true,
-      };
-      await hv.createRealm({
-        ...createRealm(),
-        config: { token: token.address, constraints },
-      });
-      const view = await hv.realmConfig("1");
-      expect(view.constraints.maxDailyRate).to.equal(500);
     });
     it("should revert if attempting to modify a realm as a non-admin", async () => {
       await hv.createRealm(createRealm());
@@ -396,7 +384,7 @@ describe("HyperVIBES", function () {
     it("should revert if daily rate too high", () => {});
     it("should revert if daily rate too low", () => {});
   });
-  describe.only("claiming", () => {
+  describe("claiming", () => {
     // ---
     // fixtures
     // ---
@@ -503,6 +491,19 @@ describe("HyperVIBES", function () {
     it("should allow claiming if approved", async () => {});
     it("should allow claiming if approved for all", async () => {});
     it("should revert if attempting to claim from un-infused token", async () => {});
+    it("should revert if claiming less than minClaimAmount", async () => {
+      await setAutomine();
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.minClaimAmount = parseUnits("1000");
+      await hv.createRealm(create);
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 1000);
+      await expect(
+        hv.claim({ ...claim(), amount: parseUnits("50") })
+      ).to.be.revertedWith("amount too low");
+    });
     it("should only claim one day of tokens after one day", async () => {});
     it("should claim entire balance after tokens fully mined out", async () => {});
     it("should only allow claiming newly mined tokens after re-infusing an empty nft", async () => {});
