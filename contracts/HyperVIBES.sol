@@ -224,7 +224,7 @@ contract HyperVIBES {
         require(constraints.minInfusionAmount <= constraints.maxInfusionAmount, "invalid min/max amount");
         require(constraints.maxInfusionAmount > 0, "invalid max amount");
         require(constraints.maxTokenBalance > 0, "invalid max token balance");
-        require(constraints.minClaimAmount <= constraints.maxTokenBalance, "invalid minClaimAmount");
+        require(constraints.minClaimAmount <= constraints.maxTokenBalance, "invalid min claim amount");
     }
 
     function _addAdmin(uint256 realmId, address admin) internal {

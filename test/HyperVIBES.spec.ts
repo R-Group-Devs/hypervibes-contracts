@@ -109,7 +109,7 @@ describe("HyperVIBES", function () {
       create.config.constraints.maxTokenBalance = parseUnits("1000");
       create.config.constraints.minClaimAmount = parseUnits("1001");
       await expect(hv.createRealm(create)).to.be.revertedWith(
-        "invalid minClaimAmount"
+        "invalid min claim amount"
       );
     });
     it("should revert if min infusion amount exceeds max infusion amount", async () => {
