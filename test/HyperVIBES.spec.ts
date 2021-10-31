@@ -374,15 +374,102 @@ describe("HyperVIBES", function () {
         (await hv.tokenData("1", collection.address, "420")).balance
       ).to.equal(parseUnits("60000"));
     });
-    it("should handle multi infusion", async () => {});
-    it("should emit an Infused event", () => {});
-    it("should revert on an invalid token id", () => {});
-    it("should revert on an invalid token contract", () => {});
-    it("should revert on an invalid realm", () => {});
-    it("should revert if amount is too high", () => {});
-    it("should revert if amount is too low", () => {});
-    it("should revert if nft not owned by infuser and requireNftIsOwned is true", () => {});
-    it("should revert if attempting proxy infusion by non-proxy", () => {});
+    it("should handle multi infusion", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.allowMultiInfuse = true;
+      await hv.createRealm(create);
+      await hv.infuse({ ...infuse(), amount: parseUnits("1000") });
+      await hv.infuse({ ...infuse(), amount: parseUnits("1000") });
+      await hv.infuse({ ...infuse(), amount: parseUnits("1000") });
+
+      expect(await token.balanceOf(a0)).to.equal(parseUnits("97000"));
+      expect(
+        (await hv.tokenData("1", collection.address, "420")).balance
+      ).to.equal(parseUnits("3000"));
+    });
+    it("should emit an Infused event", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [a0] };
+      await hv.createRealm(create);
+      await expect(hv.infuse({ ...infuse(), amount: parseUnits("1000") }))
+        .to.emit(hv, "Infused")
+        .withArgs(
+          "1",
+          collection.address,
+          "420",
+          a0,
+          parseUnits("1000"),
+          parseUnits("1000"),
+          "comment"
+        );
+    });
+    it("should revert on an invalid token id", async () => {
+      await token.mint(parseUnits("100000"));
+      const create = { ...createRealm(), infusers: [a0] };
+      await hv.createRealm(create);
+      await expect(hv.infuse(infuse())).to.revertedWith("invalid token");
+    });
+    it("should revert on an invalid token contract", async () => {
+      await token.mint(parseUnits("100000"));
+      const create = { ...createRealm(), infusers: [a0] };
+      await hv.createRealm(create);
+      await expect(
+        hv.infuse({ ...infuse(), collection: token.address })
+      ).to.be.revertedWith("invalid token");
+    });
+    it("should revert on an invalid realm", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [a0] };
+      await hv.createRealm(create);
+      await expect(
+        hv.infuse({ ...infuse(), realmId: "123" })
+      ).to.be.revertedWith("invalid realm");
+    });
+    it("should revert if amount is too high", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.maxInfusionAmount = parseUnits("1000");
+      await hv.createRealm(create);
+      await expect(
+        hv.infuse({ ...infuse(), amount: parseUnits("10000") })
+      ).to.be.revertedWith("amount too high");
+    });
+    it("should revert if amount is too low", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.minInfusionAmount = parseUnits("1000");
+      await hv.createRealm(create);
+      await expect(
+        hv.infuse({ ...infuse(), amount: parseUnits("10") })
+      ).to.be.revertedWith("amount too low");
+    });
+    it("should revert if nft not owned by infuser and requireNftIsOwned is true", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      await collection.transferFrom(a0, a1, "420");
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.requireNftIsOwned = true;
+      await hv.createRealm(create);
+      await expect(hv.infuse({ ...infuse() })).to.be.revertedWith(
+        "nft not owned by infuser"
+      );
+    });
+    it("should revert if attempting proxy infusion by non-proxy", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      await collection.transferFrom(a0, a1, "420");
+      const create = { ...createRealm(), infusers: [a0] };
+      await hv.createRealm(create);
+      await expect(hv.infuse({ ...infuse(), infuser: a1 })).to.be.revertedWith(
+        "invalid proxy infusion"
+      );
+    });
     it("should revert if attempting proxy infusion by non-proxy thats on the allowlist", () => {});
     it("should revert if attempting public infusion when allowPublicInfusion is false", () => {});
     it("should revert if infusing a non-allowed collection and allowAllCollections is false", () => {});
