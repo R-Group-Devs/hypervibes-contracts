@@ -291,6 +291,9 @@ contract HyperVIBES {
             ? realm.constraints.maxTokenBalance
             : nextBalance;
         uint256 amountToTransfer = clampedBalance - data.balance;
+        // intentionally omitting an assert for amountToTransfer != 0, its
+        // checked in validateInfusion, and would revert anyway in most erc20
+        // implementations
 
         // pull tokens from msg sender into the contract, executing transferFrom
         // last to ensure no malicious erc-20 can cause re-entrancy issues

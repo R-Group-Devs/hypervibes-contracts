@@ -470,14 +470,106 @@ describe("HyperVIBES", function () {
         "invalid proxy infusion"
       );
     });
-    it("should revert if attempting proxy infusion by non-proxy thats on the allowlist", () => {});
-    it("should revert if attempting public infusion when allowPublicInfusion is false", () => {});
-    it("should revert if infusing a non-allowed collection and allowAllCollections is false", () => {});
-    it("should revert if dailyRate is different from initial value on subsequent infusions", () => {});
-    it("should revert if infusing a second time when allowMultiInfuse is false", () => {});
-    it("should revert if daily rate too high", () => {});
-    it("should revert if daily rate too low", () => {});
-    it("should revert if clamped infusion amount is zero on multi-infuse", async () => {});
+    it("should revert if attempting proxy infusion by non-proxy thats on the allowlist", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      await collection.transferFrom(a0, a1, "420");
+      const create = { ...createRealm(), infusers: [a0, a1] };
+      await hv.createRealm(create);
+      await expect(hv.infuse({ ...infuse(), infuser: a1 })).to.be.revertedWith(
+        "invalid proxy infusion"
+      );
+    });
+    it("should revert if attempting public infusion when allowPublicInfusion is false", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [] };
+      await hv.createRealm(create);
+      await expect(hv.infuse({ ...infuse() })).to.be.revertedWith(
+        "invalid infuser"
+      );
+    });
+    it("should allow public infusions when allowPublicInfusion flag is true", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [] };
+      create.config.constraints.allowPublicInfusion = true;
+      await hv.createRealm(create);
+      await hv.infuse({ ...infuse(), amount: parseUnits("1000") });
+      expect(await token.balanceOf(a0)).to.equal(parseUnits("99000"));
+      expect(
+        (await hv.tokenData("1", collection.address, "420")).balance
+      ).to.equal(parseUnits("1000"));
+    });
+    it("should revert if infusing a non-allowed collection and allowAllCollections is false", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [a0], collection: [] };
+      create.config.constraints.allowAllCollections = false;
+      await hv.createRealm(create);
+      await expect(hv.infuse(infuse())).to.be.revertedWith(
+        "invalid collection"
+      );
+    });
+    it("should revert if dailyRate is different from initial value on subsequent infusions", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.allowMultiInfuse = true;
+      await hv.createRealm(create);
+      await hv.infuse({ ...infuse(), amount: parseUnits("1000") });
+      await hv.infuse({ ...infuse(), amount: parseUnits("1000") });
+      await expect(
+        hv.infuse({
+          ...infuse(),
+          amount: parseUnits("1000"),
+          dailyRate: parseUnits("123"),
+        })
+      ).to.be.revertedWith("daily rate is immutable");
+    });
+    it("should revert if infusing a second time when allowMultiInfuse is false", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.allowMultiInfuse = false;
+      await hv.createRealm(create);
+      await hv.infuse({ ...infuse(), amount: parseUnits("1000") });
+      await expect(
+        hv.infuse({ ...infuse(), amount: parseUnits("1000") })
+      ).to.be.revertedWith("multi infuse disabled");
+    });
+    it("should revert if daily rate too high", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.maxDailyRate = parseUnits("100");
+      await hv.createRealm(create);
+      await expect(
+        hv.infuse({ ...infuse(), dailyRate: parseUnits("1000") })
+      ).to.be.revertedWith("daily rate too high");
+    });
+    it("should revert if daily rate too low", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.minDailyRate = parseUnits("100");
+      await hv.createRealm(create);
+      await expect(
+        hv.infuse({ ...infuse(), dailyRate: parseUnits("10") })
+      ).to.be.revertedWith("daily rate too low");
+    });
+    it("should revert if clamped infusion amount is zero on multi-infuse", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.maxTokenBalance = parseUnits("10000");
+      create.config.constraints.allowMultiInfuse = true;
+      await hv.createRealm(create);
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await expect(
+        hv.infuse({ ...infuse(), amount: parseUnits("10000") })
+      ).to.be.revertedWith("max token balance");
+    });
   });
   describe("infusion proxy management", () => {
     it("should emit an InfusionProxyAdded event when adding a proxy", async () => {
@@ -607,9 +699,40 @@ describe("HyperVIBES", function () {
         hv1.claim({ ...claim(), amount: "10000" })
       ).to.be.revertedWith("not owner or approved");
     });
-    it("should allow claiming if approved", async () => {});
-    it("should allow claiming if approved for all", async () => {});
-    it("should revert if attempting to claim from un-infused token", async () => {});
+    it("should allow claiming if approved", async () => {
+      await setAutomine();
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await collection.approve(a1, "420"); // <-- a1 approved for token
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 1000);
+      const hv1 = hv.connect(accounts[1]);
+      await hv1.claim({ ...claim(), amount: parseUnits("1000") });
+      expect(await token.balanceOf(a1)).to.equal(parseUnits("1000"));
+    });
+    it("should allow claiming if approved for all", async () => {
+      await setAutomine();
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await collection.setApprovalForAll(a1, true); // <-- a1 approved for token
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 1000);
+      const hv1 = hv.connect(accounts[1]);
+      await hv1.claim({ ...claim(), amount: parseUnits("1000") });
+      expect(await token.balanceOf(a1)).to.equal(parseUnits("1000"));
+    });
+    it("should revert if attempting to claim from un-infused token", async () => {
+      await setAutomine();
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 1000);
+      await expect(hv.claim({ ...claim() })).to.be.revertedWith(
+        "token not infused"
+      );
+    });
     it("should revert if claiming less than minClaimAmount", async () => {
       await setAutomine();
       const create = { ...createRealm(), infusers: [a0] };
@@ -638,7 +761,45 @@ describe("HyperVIBES", function () {
     });
     it("should only claim one day of tokens after one day", async () => {});
     it("should claim entire balance after tokens fully mined out", async () => {});
-    it("should only allow claiming newly mined tokens after re-infusing an empty nft", async () => {});
+    it("should only allow claiming newly mined tokens after re-infusing an empty nft", async () => {
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.allowMultiInfuse = true;
+      await hv.createRealm(create);
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      await hv.infuse({
+        ...infuse(),
+        amount: parseUnits("10000"),
+        dailyRate: parseUnits("1000"),
+      });
+      await mineNextBlock();
+
+      // jump forward , claim all
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 10);
+      await hv.claim({ ...claim(), amount: parseUnits("10000") });
+      await mineNextBlock();
+      expect(await token.balanceOf(a0)).to.equal(parseUnits("100000"));
+      expect(
+        (await hv.tokenData("1", collection.address, "420")).balance
+      ).to.equal(parseUnits("0"));
+
+      // jump forward alot
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 365);
+      await hv.infuse({
+        ...infuse(),
+        amount: parseUnits("100000"),
+        dailyRate: parseUnits("1000"),
+      });
+      await mineNextBlock();
+
+      // jump forward 1 day , assert only 1 days worth claimable
+      await hv.claim({ ...claim(), amount: parseUnits("100000") });
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 1);
+      expect(await token.balanceOf(a0)).to.equal(parseUnits("1000"));
+      expect(
+        (await hv.tokenData("1", collection.address, "420")).balance
+      ).to.equal(parseUnits("99000"));
+    });
     it("should reduce claimable following a claim", async () => {});
     it("should not allow claiming immediately after claiming", async () => {});
     it("should handle partial claiming", async () => {});
