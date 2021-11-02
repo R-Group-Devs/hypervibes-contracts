@@ -279,8 +279,8 @@ contract HyperVIBES {
             data.dailyRate = input.dailyRate;
             data.lastClaimAt = block.timestamp;
         }
-        // re-set last claim to now if this is empty, else it will effectivel
-        // pre-mine the time since the last claim
+        // re-set last claim to now if this is empty, else it will pre-mine the
+        // time since the last claim
         else if (data.balance == 0) {
             data.lastClaimAt = block.timestamp;
         }
@@ -369,13 +369,17 @@ contract HyperVIBES {
 
     function claim(ClaimInput memory input) public {
         require(_isApprovedOrOwner(input.collection, input.tokenId, msg.sender), "not owner or approved");
+        require(_isTokenValid(input.collection, input.tokenId), "invalid token");
 
         TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
         require(data.lastClaimAt != 0, "token not infused");
 
-        // compute how much we can claim, only pay attention to amount if its less
-        // than available
-        uint256 availableToClaim = _claimable(input.realmId, input.collection, input.tokenId);
+        // compute mined / claimable
+        uint256 secondsToClaim = block.timestamp - data.lastClaimAt;
+        uint256 mined = (secondsToClaim * data.dailyRate) / 1 days;
+        uint256 availableToClaim = mined > data.balance ? data.balance : mined;
+
+        // only pay attention to amount if its less than available
         uint256 toClaim = input.amount < availableToClaim ? input.amount : availableToClaim;
         require(toClaim >= realmConfig[input.realmId].constraints.minClaimAmount, "amount too low");
         require(toClaim > 0, "nothing to claim");
@@ -392,23 +396,6 @@ contract HyperVIBES {
         realmConfig[input.realmId].token.transfer(msg.sender, toClaim);
 
         emit Claimed(input.realmId, input.collection, input.tokenId, toClaim);
-    }
-
-    // compute claimable tokens, reverts for invalid tokens
-    function _claimable(
-        uint256 realmId,
-        IERC721 collection,
-        uint256 tokenId
-    ) internal view returns (uint256) {
-        TokenData memory data = tokenData[realmId][collection][tokenId];
-        require(data.lastClaimAt != 0, "token has not been infused");
-        require(_isTokenValid(collection, tokenId), "invalid token");
-
-        uint256 secondsToClaim = block.timestamp - data.lastClaimAt;
-        uint256 toClaim = (secondsToClaim * data.dailyRate) / 1 days;
-
-        // clamp to token balance
-        return toClaim > data.balance ? data.balance : toClaim;
     }
 
     // ---
