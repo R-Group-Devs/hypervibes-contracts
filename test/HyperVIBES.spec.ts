@@ -803,6 +803,13 @@ describe("HyperVIBES", function () {
     it("should reduce claimable following a claim", async () => {});
     it("should not allow claiming immediately after claiming", async () => {});
     it("should handle partial claiming", async () => {});
+    it("should revert if attempting to claim from an invalid token", async () => {
+      await setAutomine();
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await expect(hv.claim({ ...claim() })).to.be.revertedWith(
+        "invalid token"
+      );
+    });
   });
   describe("reference 721 contract", () => {
     let ref721: ReferenceERC721;

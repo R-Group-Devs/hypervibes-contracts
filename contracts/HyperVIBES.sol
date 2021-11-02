@@ -368,8 +368,8 @@ contract HyperVIBES {
     // ---
 
     function claim(ClaimInput memory input) public {
-        require(_isApprovedOrOwner(input.collection, input.tokenId, msg.sender), "not owner or approved");
         require(_isTokenValid(input.collection, input.tokenId), "invalid token");
+        require(_isApprovedOrOwner(input.collection, input.tokenId, msg.sender), "not owner or approved");
 
         TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
         require(data.lastClaimAt != 0, "token not infused");
