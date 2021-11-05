@@ -886,7 +886,7 @@ describe("HyperVIBES", function () {
       const ReferenceERC721 = await ethers.getContractFactory(
         "ReferenceERC721"
       );
-      ref721 = await ReferenceERC721.deploy(token.address);
+      ref721 = await ReferenceERC721.deploy();
     });
 
     // ---
@@ -913,7 +913,7 @@ describe("HyperVIBES", function () {
       });
 
       // point the collection at hv -- needs to just be done once
-      await ref721.setHyperVIBES("1", hv.address);
+      await ref721.setHyperVIBES(token.address, "1", hv.address);
 
       // stock the 721 with tokens -- need to provide (tokens per NFT * total NFT) tokens
       await token.mint(parseUnits("300000"));

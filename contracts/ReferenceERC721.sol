@@ -12,26 +12,23 @@ contract ReferenceERC721 is ERC721Enumerable {
     // the minting contract needs to know
     // - the address of the HyperVIBES protocol
     // - the correct Realm ID
-    // - the ERC20 to infuse
     HyperVIBES public hyperVIBES;
     uint256 public realmId;
-    IERC20 public token;
 
-    constructor(IERC20 token_) ERC721("MockERC721", "TEST") {
-      // token set via constructor, could be configured post-deploy as well
-      token = token_;
-    }
+    constructor() ERC721("MockERC721", "TEST") { }
 
     // Set the pointer to the HyperVIBES protocol
     // NOTE: this function should be secure (only a privledged admin should be
     // allowed to use this)
-    function setHyperVIBES(uint256 realmId_, HyperVIBES hyperVIBES_) external {
+    function setHyperVIBES(IERC20 token, uint256 realmId_, HyperVIBES hyperVIBES_) external {
       realmId = realmId_;
       hyperVIBES = hyperVIBES_;
 
       // we need to approve hypervibes to spend any tokens owned by this
       // contract, we'll store the tokens required for infusing in the ERC-721
       token.approve(address(hyperVIBES_), 2 ** 256 - 1);
+
+      // dont need to store token address since its only needed to call approve initially
     }
 
     function mint(uint256 tokenId) external {
