@@ -267,7 +267,7 @@ contract HyperVIBES {
     // infuser mutations
     // ---
 
-    function infuse(InfuseInput memory input) external {
+    function infuse(InfuseInput memory input) public {
         TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
         RealmConfig memory realm = realmConfig[input.realmId];
 
@@ -309,6 +309,12 @@ contract HyperVIBES {
             input.dailyRate,
             input.comment
         );
+    }
+
+    function batchInfuse(InfuseInput[] memory batch) external {
+        for (uint256 i; i < batch.length; i++) {
+            infuse(batch[i]);
+        }
     }
 
     function _validateInfusion(InfuseInput memory input, TokenData memory data, RealmConfig memory realm) internal view {
@@ -396,6 +402,12 @@ contract HyperVIBES {
         realmConfig[input.realmId].token.transfer(msg.sender, toClaim);
 
         emit Claimed(input.realmId, input.collection, input.tokenId, toClaim);
+    }
+
+    function batchClaim(ClaimInput[] memory batch) external {
+        for (uint256 i = 0; i < batch.length; i++) {
+            claim(batch[i]);
+        }
     }
 
     // ---
