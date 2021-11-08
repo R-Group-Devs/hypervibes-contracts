@@ -40,8 +40,6 @@ describe("HyperVIBES", function () {
 
   const realmConstraints = () => {
     return {
-      minDailyRate: parseUnits("0"),
-      maxDailyRate: parseUnits("1000"),
       minInfusionAmount: parseUnits("0"),
       maxInfusionAmount: parseUnits("100000"),
       maxTokenBalance: parseUnits("100000"),
@@ -62,6 +60,7 @@ describe("HyperVIBES", function () {
       infusers: [],
       config: {
         token: token.address,
+        dailyRate: parseUnits("1000"),
         constraints: realmConstraints(),
       },
     };
@@ -95,14 +94,6 @@ describe("HyperVIBES", function () {
     it("should create a realm", async () => {
       await hv.createRealm(createRealm());
       expect((await hv.realmConfig("1")).token).equals(token.address);
-    });
-    it("should revert if min daily rate exceeds max daily rate", async () => {
-      const create = createRealm();
-      create.config.constraints.minDailyRate = BigNumber.from(500);
-      create.config.constraints.maxDailyRate = BigNumber.from(0);
-      await expect(hv.createRealm(create)).to.be.revertedWith(
-        "invalid min/max daily rate"
-      );
     });
     it("should revert if minClaimAmount is greater than maxTokenBalance", async () => {
       const create = createRealm();
@@ -338,7 +329,6 @@ describe("HyperVIBES", function () {
         collection: collection.address,
         tokenId: "420",
         infuser: a0,
-        dailyRate: parseUnits("1000"),
         amount: parseUnits("50000"),
         comment: "comment",
       };
@@ -401,7 +391,6 @@ describe("HyperVIBES", function () {
           collection.address,
           "420",
           a0,
-          parseUnits("1000"),
           parseUnits("1000"),
           "comment"
         );
@@ -511,22 +500,6 @@ describe("HyperVIBES", function () {
         "invalid collection"
       );
     });
-    it("should revert if dailyRate is different from initial value on subsequent infusions", async () => {
-      await token.mint(parseUnits("100000"));
-      await collection.mint("420");
-      const create = { ...createRealm(), infusers: [a0] };
-      create.config.constraints.allowMultiInfuse = true;
-      await hv.createRealm(create);
-      await hv.infuse({ ...infuse(), amount: parseUnits("1000") });
-      await hv.infuse({ ...infuse(), amount: parseUnits("1000") });
-      await expect(
-        hv.infuse({
-          ...infuse(),
-          amount: parseUnits("1000"),
-          dailyRate: parseUnits("123"),
-        })
-      ).to.be.revertedWith("daily rate is immutable");
-    });
     it("should revert if infusing a second time when allowMultiInfuse is false", async () => {
       await token.mint(parseUnits("100000"));
       await collection.mint("420");
@@ -537,26 +510,6 @@ describe("HyperVIBES", function () {
       await expect(
         hv.infuse({ ...infuse(), amount: parseUnits("1000") })
       ).to.be.revertedWith("multi infuse disabled");
-    });
-    it("should revert if daily rate too high", async () => {
-      await token.mint(parseUnits("100000"));
-      await collection.mint("420");
-      const create = { ...createRealm(), infusers: [a0] };
-      create.config.constraints.maxDailyRate = parseUnits("100");
-      await hv.createRealm(create);
-      await expect(
-        hv.infuse({ ...infuse(), dailyRate: parseUnits("1000") })
-      ).to.be.revertedWith("daily rate too high");
-    });
-    it("should revert if daily rate too low", async () => {
-      await token.mint(parseUnits("100000"));
-      await collection.mint("420");
-      const create = { ...createRealm(), infusers: [a0] };
-      create.config.constraints.minDailyRate = parseUnits("100");
-      await hv.createRealm(create);
-      await expect(
-        hv.infuse({ ...infuse(), dailyRate: parseUnits("10") })
-      ).to.be.revertedWith("daily rate too low");
     });
     it("should revert if clamped infusion amount is zero on multi-infuse", async () => {
       await token.mint(parseUnits("100000"));
@@ -606,7 +559,6 @@ describe("HyperVIBES", function () {
         collection: collection.address,
         tokenId: "420",
         infuser: a0,
-        dailyRate: parseUnits("1000"),
         amount: parseUnits("10000"),
         comment: "comment",
       };
@@ -792,7 +744,6 @@ describe("HyperVIBES", function () {
       await hv.infuse({
         ...infuse(),
         amount: parseUnits("10000"),
-        dailyRate: parseUnits("1000"),
       });
       await mineNextBlock();
 
@@ -810,7 +761,6 @@ describe("HyperVIBES", function () {
       await hv.infuse({
         ...infuse(),
         amount: parseUnits("100000"),
-        dailyRate: parseUnits("1000"),
       });
       await mineNextBlock();
 

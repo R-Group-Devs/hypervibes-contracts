@@ -1,13 +1,13 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.0;
 
-import "@openzeppelin/contracts/token/ERC721/extensions/ERC721Enumerable.sol";
+import "@openzeppelin/contracts/token/ERC721/ERC721.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./HyperVIBES.sol";
 
 
 // This is an example ERC721 that will "infuse on mint"
-contract ReferenceERC721 is ERC721Enumerable {
+contract ReferenceERC721 is ERC721 {
 
     // the minting contract needs to know
     // - the address of the HyperVIBES protocol
@@ -52,8 +52,8 @@ contract ReferenceERC721 is ERC721Enumerable {
 
           // based on desired behavior and realm config. using ether keyword
           // here is ofc only correct if the ERC-20 being used has decimals = 18
-          dailyRate: 1_000 ether,
           amount: 100_000 ether,
+          // daily rate is set on the realm config and cannot be modified
 
           // optional, can just be an empty string
           comment: "nice!"

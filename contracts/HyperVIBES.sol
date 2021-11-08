@@ -6,7 +6,6 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 // data stored for-each infused token
 struct TokenData {
-    uint256 dailyRate;
     uint256 balance;
     uint256 lastClaimAt;
 }
@@ -14,17 +13,12 @@ struct TokenData {
 // per-realm configuration
 struct RealmConfig {
     IERC20 token;
+    uint256 dailyRate;
     RealmConstraints constraints;
 }
 
 // modifyiable realm constraints
 struct RealmConstraints {
-    // token mining rate must be at least min
-    uint256 minDailyRate;
-
-    // token mining rate cannot exceed max
-    uint256 maxDailyRate;
-
     // min amount allowed for a single infusion
     uint256 minInfusionAmount;
 
@@ -79,7 +73,6 @@ struct InfuseInput {
     IERC721 collection;
     uint256 tokenId;
     address infuser;
-    uint256 dailyRate;
     uint256 amount;
     string comment;
 }
@@ -146,7 +139,6 @@ contract HyperVIBES {
         uint256 indexed tokenId,
         address infuser,
         uint256 amount,
-        uint256 dailyRate,
         string comment
     );
 
@@ -220,7 +212,6 @@ contract HyperVIBES {
 
     // check for constraint values that are nonsensical, revert if a problem
     function _validateRealmConstraints(RealmConstraints memory constraints) internal pure {
-        require(constraints.minDailyRate <= constraints.maxDailyRate, "invalid min/max daily rate");
         require(constraints.minInfusionAmount <= constraints.maxInfusionAmount, "invalid min/max amount");
         require(constraints.maxInfusionAmount > 0, "invalid max amount");
         require(constraints.maxTokenBalance > 0, "invalid max token balance");
@@ -276,7 +267,6 @@ contract HyperVIBES {
 
         // initialize token storage if first infusion
         if (data.lastClaimAt == 0) {
-            data.dailyRate = input.dailyRate;
             data.lastClaimAt = block.timestamp;
         }
         // re-set last claim to now if this is empty, else it will pre-mine the
@@ -306,7 +296,6 @@ contract HyperVIBES {
             input.tokenId,
             input.infuser,
             input.amount,
-            input.dailyRate,
             input.comment
         );
     }
@@ -337,16 +326,7 @@ contract HyperVIBES {
 
         // if already infused...
         if (data.lastClaimAt != 0) {
-            require(data.dailyRate == input.dailyRate, "daily rate is immutable");
             require(realm.constraints.allowMultiInfuse, "multi infuse disabled");
-            // intentionally ommitting checks to min/max daily rate -- its
-            // possible realm configuration has changed since the initial
-            // infusion, we don't want to prevent "topping off" the NFT if this
-            // is the case
-        } else {
-            // else ensure daily rate is within min/max constraints
-            require(input.dailyRate >= realm.constraints.minDailyRate, "daily rate too low");
-            require(input.dailyRate <= realm.constraints.maxDailyRate, "daily rate too high");
         }
 
         // if token balance is already at max, clamped amount will be zero
@@ -382,7 +362,7 @@ contract HyperVIBES {
 
         // compute mined / claimable
         uint256 secondsToClaim = block.timestamp - data.lastClaimAt;
-        uint256 mined = (secondsToClaim * data.dailyRate) / 1 days;
+        uint256 mined = (secondsToClaim * realmConfig[input.realmId].dailyRate) / 1 days;
         uint256 availableToClaim = mined > data.balance ? data.balance : mined;
 
         // only pay attention to amount if its less than available
@@ -393,7 +373,7 @@ contract HyperVIBES {
         // claim only as far up as we need to get our amount... basically "advances"
         // the lastClaim timestamp the exact amount needed to provide the amount
         // claim at = last + (to claim / rate) * 1 day, rewritten for div last
-        uint256 claimAt = data.lastClaimAt + (toClaim * 1 days) / data.dailyRate;
+        uint256 claimAt = data.lastClaimAt + (toClaim * 1 days) / realmConfig[input.realmId].dailyRate;
 
         // update balances and execute ERC-20 transfer, calling transferFrom
         // last to prevent any malicious erc-20 from causing re-entrancy issues
