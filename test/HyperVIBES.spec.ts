@@ -641,7 +641,7 @@ describe("HyperVIBES", function () {
       await mineNextBlock();
       expect(await token.balanceOf(a0)).to.equal(parseUnits("10000"));
     });
-    it.only("should batch claim tokens", async () => {
+    it("should batch claim tokens", async () => {
       await setAutomine();
       await hv.createRealm({ ...createRealm(), infusers: [a0] });
       await token.mint(parseUnits("100000"));
