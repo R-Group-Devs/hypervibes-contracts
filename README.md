@@ -15,8 +15,9 @@ Smart contracts for the HyperVIBES project.
 
 | network | address |
 | --- | --- |
-| ethereum | n/a
-| polygon | n/a
+| ethereum mainnet | n/a
+| polygon mainnet | n/a
+| xDai mainnet | n/a
 | mumbai testnet | n/a
 | ropsten testnet | n/a
 | rinkeby testnet | [`0xC53B8332AAcdB2dA3BaaC36264E91473D6362b20`](https://rinkeby.etherscan.io/address/0xC53B8332AAcdB2dA3BaaC36264E91473D6362b20)
