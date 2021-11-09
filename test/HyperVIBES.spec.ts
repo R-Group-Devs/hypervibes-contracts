@@ -349,6 +349,31 @@ describe("HyperVIBES", function () {
       ).to.equal(parseUnits("50000"));
       expect(await token.balanceOf(hv.address)).to.equal(parseUnits("50000"));
     });
+    it("should batch infuse tokens from msg.sender to nft", async () => {
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await token.mint(parseUnits("1000000"));
+      const tokenIds = [...new Array(100)].map((_, idx) => `${idx + 1}`);
+      for (const tokenId of tokenIds) {
+        await collection.mint(tokenId);
+      }
+      await hv.batchInfuse(
+        tokenIds.map((tokenId) => {
+          return {
+            amount: parseUnits("1000"),
+            collection: collection.address,
+            comment: "",
+            infuser: a0,
+            realmId: "1",
+            tokenId,
+          };
+        })
+      );
+      expect(await token.balanceOf(a0)).to.equal(parseUnits("900000"));
+      expect(
+        (await hv.tokenData("1", collection.address, "1")).balance
+      ).to.equal(parseUnits("1000"));
+      expect(await token.balanceOf(hv.address)).to.equal(parseUnits("100000"));
+    });
     it("should clamp infused amount to to max token balance", async () => {
       await token.mint(parseUnits("100000"));
       await collection.mint("420");
@@ -590,6 +615,7 @@ describe("HyperVIBES", function () {
     // ---
     // tests
     // ---
+
     it("should claim tokens", async () => {
       await hv.createRealm({ ...createRealm(), infusers: [a0] });
       await token.mint(parseUnits("10000"));
@@ -614,6 +640,45 @@ describe("HyperVIBES", function () {
       await hv.claim({ ...claim(), amount: parseUnits("10000") });
       await mineNextBlock();
       expect(await token.balanceOf(a0)).to.equal(parseUnits("10000"));
+    });
+    it.only("should batch claim tokens", async () => {
+      await setAutomine();
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await token.mint(parseUnits("100000"));
+      const tokenIds = [...new Array(100)].map((_, idx) => `${idx + 1}`);
+      for (const tokenId of tokenIds) {
+        await collection.mint(tokenId);
+      }
+
+      await hv.batchInfuse(
+        tokenIds.map((tokenId) => {
+          return {
+            amount: parseUnits("1000"),
+            collection: collection.address,
+            comment: "",
+            infuser: a0,
+            realmId: "1",
+            tokenId,
+          };
+        })
+      );
+
+      // jump 1 day
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24);
+
+      await hv.batchClaim(
+        tokenIds.map((tokenId) => {
+          return {
+            amount: parseUnits("1000"),
+            collection: collection.address,
+            realmId: "1",
+            tokenId,
+          };
+        })
+      );
+
+      expect(await token.balanceOf(a0)).to.equal(parseUnits("100000"));
+      expect(await token.balanceOf(hv.address)).to.equal(parseUnits("0"));
     });
     it("should emit a Claimed event on claim", async () => {
       await setAutomine();
