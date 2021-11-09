@@ -13,7 +13,12 @@ async function main() {
   console.log("deploying tokens");
   const token = await MockERC20.deploy();
   const collection = await MockERC721.deploy();
-  await Promise.all([token.deployed(), collection.deployed()]);
+  const ref721 = await ReferenceERC721.deploy();
+  await Promise.all([
+    token.deployed(),
+    collection.deployed(),
+    ref721.deployed(),
+  ]);
 
   console.log("minting bags");
   const trx1 = await token.mint(parseUnits("1000000000").mul(50));
@@ -21,9 +26,6 @@ async function main() {
   await trx1.wait(3);
 
   // deploy 721 and give it a ton of tokens
-  console.log("deploying ref721");
-  const ref721 = await ReferenceERC721.deploy(token.address);
-  await ref721.deployed();
   console.log("bagging the ref721");
   await token.transfer(ref721.address, BAG);
 

@@ -15,9 +15,19 @@ Smart contracts for the HyperVIBES project.
 
 | network | address |
 | --- | --- |
-| mainnet | n/a
+| ethereum | n/a
 | polygon | n/a
-| rinkeby | [`0x810F23b2fD12a7e989A6a13EC0fc655DDBf5303c`](https://rinkeby.etherscan.io/address/0x810F23b2fD12a7e989A6a13EC0fc655DDBf5303c)
+| mumbai testnet | n/a
+| ropsten testnet | n/a
+| rinkeby testnet | [`0xC53B8332AAcdB2dA3BaaC36264E91473D6362b20`](https://rinkeby.etherscan.io/address/0xC53B8332AAcdB2dA3BaaC36264E91473D6362b20)
+
+### Rinkeby Testnet Fixtures
+
+| contract | address |
+| --- | --- |
+| MockERC20 | [`0xA50f703771d04D9e76e03b20720539Fc014aaA40`](https://rinkeby.etherscan.io/address/0xA50f703771d04D9e76e03b20720539Fc014aaA40)
+| MockERC721 | [`0xcF5D09efF740066D202E33bb59FA07FEC03Db06E`](https://rinkeby.etherscan.io/address/0xcF5D09efF740066D202E33bb59FA07FEC03Db06E)
+| ReferenceERC721 | [`0x10223Ef0924A687666c469790c29C83935d4EA59`](https://rinkeby.etherscan.io/address/0x10223Ef0924A687666c469790c29C83935d4EA59)
 
 ## Development
 
