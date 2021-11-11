@@ -374,6 +374,27 @@ contract HyperVIBES {
     // claimer mutations
     // ---
 
+    function currentMinedTokens(uint256 realmId, IERC721 collection, uint256 tokenId) external view returns (uint256) {
+        require(_realmExists(realmId), "invalid realm");
+
+        TokenData memory data = tokenData[realmId][collection][tokenId];
+
+        // if non-existing token
+        if (!_isTokenValid(collection, tokenId)) {
+            return 0;
+        }
+
+        // not infused
+        if (data.lastClaimAt == 0) {
+            return 0;
+        }
+
+        uint256 miningTime = block.timestamp - data.lastClaimAt;
+        uint256 mined = (miningTime * realmConfig[realmId].dailyRate) / 1 days;
+        uint256 clamped = mined > data.balance ? data.balance : mined;
+        return clamped;
+    }
+
     function claim(ClaimInput memory input) public {
         require(_isTokenValid(input.collection, input.tokenId), "invalid token");
         require(_isApprovedOrOwner(input.collection, input.tokenId, msg.sender), "not owner or approved");

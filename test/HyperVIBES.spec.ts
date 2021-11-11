@@ -82,8 +82,28 @@ describe("HyperVIBES", function () {
   // basics
   // ---
 
-  it("should snap on the dot sol", async function () {
-    expect(await hv.name()).equals("HyperVIBES");
+  describe("views", () => {
+    it("should snap on the dot sol", async function () {
+      expect(await hv.name()).equals("HyperVIBES");
+    });
+    it("should return 0 for currentMinedTokens if invalid NFT", async () => {
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      expect(
+        await hv.currentMinedTokens("1", collection.address, "12345")
+      ).to.equal(0);
+    });
+    it("should return 0 for currentMinedTokens if non-infused NFT", async () => {
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await collection.mint("12345");
+      expect(
+        await hv.currentMinedTokens("1", collection.address, "12345")
+      ).to.equal(0);
+    });
+    it("should revert if calling currentMinedTokens for an invalid realm", async () => {
+      await expect(
+        hv.currentMinedTokens("1", collection.address, "12345")
+      ).to.be.revertedWith("invalid realm");
+    });
   });
 
   // ---
@@ -796,8 +816,13 @@ describe("HyperVIBES", function () {
       await mineNextBlock();
 
       // jump way forward
-      await hv.claim({ ...claim(), amount: parseUnits("100000") });
       await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 365);
+      expect(
+        await hv.currentMinedTokens("1", collection.address, "420")
+      ).to.equal(parseUnits("10000"));
+
+      await hv.claim({ ...claim(), amount: parseUnits("100000") });
+      await mineNextBlock();
       expect(await token.balanceOf(a0)).to.equal(parseUnits("10000"));
     });
     it("should only allow claiming newly mined tokens after re-infusing an empty nft", async () => {
@@ -813,21 +838,25 @@ describe("HyperVIBES", function () {
       await mineNextBlock();
 
       // jump forward , claim all
-      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 10);
       await hv.claim({ ...claim(), amount: parseUnits("10000") });
-      await mineNextBlock();
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 10);
       expect(await token.balanceOf(a0)).to.equal(parseUnits("100000"));
       expect(
         (await hv.tokenData("1", collection.address, "420")).balance
       ).to.equal(parseUnits("0"));
+      expect(
+        await hv.currentMinedTokens("1", collection.address, "420")
+      ).to.equal(parseUnits("0"));
 
       // jump forward alot
-      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 365);
       await hv.infuse({
         ...infuse(),
         amount: parseUnits("100000"),
       });
-      await mineNextBlock();
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 365);
+      expect(
+        await hv.currentMinedTokens("1", collection.address, "420")
+      ).to.equal(parseUnits("0"));
 
       // jump forward 1 day , assert only 1 days worth claimable
       await hv.claim({ ...claim(), amount: parseUnits("100000") });
@@ -836,6 +865,9 @@ describe("HyperVIBES", function () {
       expect(
         (await hv.tokenData("1", collection.address, "420")).balance
       ).to.equal(parseUnits("99000"));
+      expect(
+        await hv.currentMinedTokens("1", collection.address, "420")
+      ).to.equal(parseUnits("0"));
     });
     it("should reduce claimable following a claim", async () => {
       await hv.createRealm({ ...createRealm(), infusers: [a0] });
@@ -851,6 +883,20 @@ describe("HyperVIBES", function () {
         (await hv.tokenData("1", collection.address, "420")).balance
       ).to.equal(parseUnits("9000"));
       expect(await token.balanceOf(a0)).to.equal(parseUnits("1000"));
+    });
+    it("should reduce currentMinedTokens after claim", async () => {
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await mineNextBlock();
+
+      // jump 1 day
+      await hv.claim({ ...claim(), amount: parseUnits("100000") });
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24);
+      expect(
+        await hv.currentMinedTokens("1", collection.address, "420")
+      ).to.equal(parseUnits("0"));
     });
     it("should not allow claiming immediately after claiming", async () => {
       await hv.createRealm({ ...createRealm(), infusers: [a0] });
@@ -869,6 +915,9 @@ describe("HyperVIBES", function () {
         (await hv.tokenData("1", collection.address, "420")).balance
       ).to.equal(parseUnits("9000"));
       expect(await token.balanceOf(a0)).to.equal(parseUnits("1000"));
+      expect(
+        await hv.currentMinedTokens("1", collection.address, "420")
+      ).to.equal(parseUnits("0"));
     });
     it("should handle partial claiming", async () => {
       await hv.createRealm({ ...createRealm(), infusers: [a0] });
@@ -876,6 +925,7 @@ describe("HyperVIBES", function () {
       await collection.mint("420");
       await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
       await mineNextBlock();
+
       await hv.claim({ ...claim(), amount: parseUnits("100") });
       await hv.claim({ ...claim(), amount: parseUnits("100") });
       await hv.claim({ ...claim(), amount: parseUnits("100") });
@@ -885,6 +935,9 @@ describe("HyperVIBES", function () {
         (await hv.tokenData("1", collection.address, "420")).balance
       ).to.equal(parseUnits("9500"));
       expect(await token.balanceOf(a0)).to.equal(parseUnits("500"));
+      expect(
+        await hv.currentMinedTokens("1", collection.address, "420")
+      ).to.equal(parseUnits("500"));
     });
     it("should revert if attempting to claim from an invalid token", async () => {
       await setAutomine();
