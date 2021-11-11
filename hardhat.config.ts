@@ -22,6 +22,9 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 // You need to export an object to set up your config
 // Go to https://hardhat.org/config/ to learn more
 
+const accounts =
+  process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [];
+
 const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.4",
@@ -32,22 +35,21 @@ const config: HardhatUserConfig = {
       },
     },
   },
+
   networks: {
-    ropsten: {
-      url: process.env.ROPSTEN_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-    },
-    rinkeby: {
-      url: process.env.RINKEBY_URL || "",
-      accounts:
-        process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [],
-    },
+    ropsten: { url: process.env.ROPSTEN_URL || "", accounts },
+    rinkeby: { url: process.env.RINKEBY_URL || "", accounts },
+    eth: { url: process.env.ETH_URL || "", accounts },
+    mumbai: { url: process.env.MUMBAI_URL || "", accounts },
+    polygon: { url: process.env.POLYGON_URL || "", accounts },
+    xdai: { url: process.env.XDAI_URL || "", accounts },
   },
+
   gasReporter: {
     enabled: process.env.REPORT_GAS !== undefined,
     currency: "USD",
   },
+
   etherscan: {
     apiKey: process.env.ETHERSCAN_API_KEY,
   },
