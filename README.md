@@ -19,8 +19,8 @@ Smart contracts for the HyperVIBES project.
 | polygon mainnet | n/a
 | xDai mainnet | n/a
 | mumbai testnet | n/a
-| ropsten testnet | n/a
-| rinkeby testnet | [`0xC53B8332AAcdB2dA3BaaC36264E91473D6362b20`](https://rinkeby.etherscan.io/address/0xC53B8332AAcdB2dA3BaaC36264E91473D6362b20)
+| ropsten testnet | [`0x9Dd0d07224bAA34Da65709927f99BEe6DAFE6862`](https://ropsten.etherscan.io/address/0x9Dd0d07224bAA34Da65709927f99BEe6DAFE6862)
+| rinkeby testnet | [`0xe40d31e51bEc80ba5Bd1A1074134FA61cc557927`](https://rinkeby.etherscan.io/address/0xe40d31e51bEc80ba5Bd1A1074134FA61cc557927)
 
 ### Rinkeby Testnet Fixtures
 
