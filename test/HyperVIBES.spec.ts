@@ -727,6 +727,43 @@ describe("HyperVIBES", function () {
       expect(await token.balanceOf(a0)).to.equal(parseUnits("0"));
       expect(await token.balanceOf(a1)).to.equal(parseUnits("1000"));
     });
+    it("should revert if proxy claim is made when allow public claims is false if not on allowlist", async () => {
+      const hv1 = hv.connect(accounts[1]);
+
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.allowPublicClaiming = false;
+      await hv.createRealm(create);
+      await hv.allowProxy("1", a1);
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await mineNextBlock();
+
+      // jump 1 day
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24);
+      setAutomine(true);
+      await expect(
+        hv1.claim({ ...claim(), amount: parseUnits("1000") })
+      ).to.be.revertedWith("invalid claimer");
+    });
+    it("should revert if allowlist proxy claim is made but proxy was not approved", async () => {
+      const hv1 = hv.connect(accounts[1]);
+
+      const create = { ...createRealm(), infusers: [a0], claimers: [a1] };
+      create.config.constraints.allowPublicClaiming = false;
+      await hv.createRealm(create);
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await mineNextBlock();
+
+      // jump 1 day
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24);
+      setAutomine(true);
+      await expect(
+        hv1.claim({ ...claim(), amount: parseUnits("1000") })
+      ).to.be.revertedWith("invalid claimer");
+    });
     it("should allow claimers to claim on behalf if authorized proxy and no self claim", async () => {
       const hv1 = hv.connect(accounts[1]);
 
@@ -832,6 +869,34 @@ describe("HyperVIBES", function () {
       const hv1 = hv.connect(accounts[1]);
       await hv1.claim({ ...claim(), amount: parseUnits("1000") });
       expect(await token.balanceOf(a1)).to.equal(parseUnits("1000"));
+    });
+    it("should revert if owned but public claiming is disabled", async () => {
+      await setAutomine();
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.allowPublicClaiming = false;
+      await hv.createRealm(create);
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 1000);
+      await expect(
+        hv.claim({ ...claim(), amount: parseUnits("1000") })
+      ).to.be.revertedWith("invalid claimer");
+    });
+    it("should revert if approved but public claiming is disabled", async () => {
+      await setAutomine();
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.allowPublicClaiming = false;
+      await hv.createRealm(create);
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await collection.approve(a1, "420"); // <-- a1 approved for token
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 1000);
+      const hv1 = hv.connect(accounts[1]);
+      await expect(
+        hv1.claim({ ...claim(), amount: parseUnits("1000") })
+      ).to.be.revertedWith("invalid claimer");
     });
     it("should allow claiming if approved for all", async () => {
       await setAutomine();
@@ -962,7 +1027,7 @@ describe("HyperVIBES", function () {
       await mineNextBlock();
 
       // jump 1 day
-      await hv.claim({ ...claim(), amount: parseUnits("100000") });
+      await hv.claim({ ...claim(), amount: parseUnits("1000") });
       await increaseTimestampAndMineNextBlock(60 * 60 * 24);
       expect(
         (await hv.tokenData("1", collection.address, "420")).balance
