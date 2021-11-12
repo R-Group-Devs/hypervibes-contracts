@@ -83,6 +83,12 @@ yarn verify --network ropsten $CONTRACT_ADDRESS
 
 Verification may fail if run too quickly after contract deployment.
 
+If you are verifying for `polygon` or `mumbai` networks, set the `POLYGON` env var:
+
+```
+POLYGON=1 yarn verify --network polygon $CONTRACT_ADDRESS
+```
+
 To deploy test fixtures and contracts (only needed for testnet):
 
 ```
