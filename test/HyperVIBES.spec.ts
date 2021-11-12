@@ -48,6 +48,7 @@ describe("HyperVIBES", function () {
       allowMultiInfuse: false,
       allowPublicInfusion: false,
       allowAllCollections: true,
+      allowPublicClaiming: true,
     };
   };
 
@@ -58,6 +59,7 @@ describe("HyperVIBES", function () {
       admins: [],
       collections: [],
       infusers: [],
+      claimers: [],
       config: {
         token: token.address,
         dailyRate: parseUnits("1000"),
@@ -75,6 +77,8 @@ describe("HyperVIBES", function () {
       infusersToRemove: [],
       collectionsToAdd: [],
       collectionsToRemove: [],
+      claimersToAdd: [],
+      claimersToRemove: [],
     };
   };
 
@@ -197,6 +201,16 @@ describe("HyperVIBES", function () {
       expect(await hv.isInfuser("1", a2)).to.equal(true);
       expect(await hv.isInfuser("1", a3)).to.equal(false);
     });
+    it("should add initial claimers to realm", async () => {
+      await hv.createRealm({
+        ...createRealm(),
+        claimers: [a1, a2],
+      });
+
+      expect(await hv.isClaimer("1", a1)).to.equal(true);
+      expect(await hv.isClaimer("1", a2)).to.equal(true);
+      expect(await hv.isClaimer("1", a3)).to.equal(false);
+    });
     it("should add initial collections to realm", async () => {
       await hv.createRealm({
         ...createRealm(),
@@ -240,6 +254,27 @@ describe("HyperVIBES", function () {
         infusersToRemove: [a1],
       });
       expect(await hv.isInfuser("1", a0)).to.equal(false);
+    });
+    it("should add claimers via modifyRealm", async () => {
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
+      await hv.modifyRealm({
+        ...modifyRealm(),
+        claimersToAdd: [a1],
+      });
+      expect(await hv.isClaimer("1", a1)).to.equal(true);
+    });
+    it("should remove claimers via modifyRealm", async () => {
+      await hv.createRealm({
+        ...createRealm(),
+        admins: [a0],
+        claimers: [a1],
+      });
+      expect(await hv.isClaimer("1", a1)).to.equal(true);
+      await hv.modifyRealm({
+        ...modifyRealm(),
+        claimersToRemove: [a1],
+      });
+      expect(await hv.isClaimer("1", a0)).to.equal(false);
     });
     it("should add collections via modifyRealm", async () => {
       await hv.createRealm({ ...createRealm(), admins: [a0] });
@@ -286,6 +321,18 @@ describe("HyperVIBES", function () {
         .to.emit(hv, "InfuserRemoved")
         .withArgs("1", a0);
     });
+    it("should emit an ClaimerAdded event on modifyRealm", async () => {
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
+      await expect(hv.modifyRealm({ ...modifyRealm(), claimersToAdd: [a1] }))
+        .to.emit(hv, "ClaimerAdded")
+        .withArgs("1", a1);
+    });
+    it("should emit an ClaimerRemoved event on modifyRealm", async () => {
+      await hv.createRealm({ ...createRealm(), admins: [a0] });
+      await expect(hv.modifyRealm({ ...modifyRealm(), claimersToRemove: [a0] }))
+        .to.emit(hv, "ClaimerRemoved")
+        .withArgs("1", a0);
+    });
     it("should emit a CollectionAdded event on modifyRealm", async () => {
       await hv.createRealm({ ...createRealm(), admins: [a0] });
       await expect(
@@ -322,6 +369,12 @@ describe("HyperVIBES", function () {
       await expect(
         hv.modifyRealm({ ...modifyRealm(), infusersToRemove: [AddressZero] })
       ).to.be.revertedWith("invalid infuser");
+      await expect(
+        hv.modifyRealm({ ...modifyRealm(), claimersToAdd: [AddressZero] })
+      ).to.be.revertedWith("invalid claimer");
+      await expect(
+        hv.modifyRealm({ ...modifyRealm(), claimersToRemove: [AddressZero] })
+      ).to.be.revertedWith("invalid claimer");
       await expect(
         hv.modifyRealm({ ...modifyRealm(), collectionsToAdd: [AddressZero] })
       ).to.be.revertedWith("invalid collection");
@@ -501,7 +554,7 @@ describe("HyperVIBES", function () {
       const create = { ...createRealm(), infusers: [a0] };
       await hv.createRealm(create);
       await expect(hv.infuse({ ...infuse(), infuser: a1 })).to.be.revertedWith(
-        "invalid proxy infusion"
+        "invalid proxy"
       );
     });
     it("should revert if attempting proxy infusion by non-proxy thats on the allowlist", async () => {
@@ -511,7 +564,7 @@ describe("HyperVIBES", function () {
       const create = { ...createRealm(), infusers: [a0, a1] };
       await hv.createRealm(create);
       await expect(hv.infuse({ ...infuse(), infuser: a1 })).to.be.revertedWith(
-        "invalid proxy infusion"
+        "invalid proxy"
       );
     });
     it("should revert if attempting public infusion when allowPublicInfusion is false", async () => {
@@ -570,27 +623,23 @@ describe("HyperVIBES", function () {
     });
   });
   describe("infusion proxy management", () => {
-    it("should emit an InfusionProxyAdded event when adding a proxy", async () => {
+    it("should emit an ProxyAdded event when adding a proxy", async () => {
       await hv.createRealm(createRealm());
-      await expect(hv.allowInfusionProxy("1", a1))
-        .to.emit(hv, "InfusionProxyAdded")
+      await expect(hv.allowProxy("1", a1))
+        .to.emit(hv, "ProxyAdded")
         .withArgs("1", a1);
     });
-    it("should emit an InfusionProxyRemoved event when removing a proxy", async () => {
+    it("should emit an ProxyRemoved event when removing a proxy", async () => {
       await hv.createRealm(createRealm());
-      await expect(hv.denyInfusionProxy("1", a1))
-        .to.emit(hv, "InfusionProxyRemoved")
+      await expect(hv.denyProxy("1", a1))
+        .to.emit(hv, "ProxyRemoved")
         .withArgs("1", a1);
     });
-    it("should revert if providing an invalid realm to allowInfusionProxy", async () => {
-      await expect(hv.allowInfusionProxy("1", a1)).to.be.revertedWith(
-        "invalid realm"
-      );
+    it("should revert if providing an invalid realm to allowProxy", async () => {
+      await expect(hv.allowProxy("1", a1)).to.be.revertedWith("invalid realm");
     });
-    it("should revert if providing an invalid realm to denyInfusionProxy", async () => {
-      await expect(hv.denyInfusionProxy("1", a1)).to.be.revertedWith(
-        "invalid realm"
-      );
+    it("should revert if providing an invalid realm to denyProxy", async () => {
+      await expect(hv.denyProxy("1", a1)).to.be.revertedWith("invalid realm");
     });
   });
   describe("claiming", () => {
@@ -660,6 +709,42 @@ describe("HyperVIBES", function () {
       await hv.claim({ ...claim(), amount: parseUnits("10000") });
       await mineNextBlock();
       expect(await token.balanceOf(a0)).to.equal(parseUnits("10000"));
+    });
+    it("should allow valid proxies to claim on behalf of owner", async () => {
+      const hv1 = hv.connect(accounts[1]);
+
+      await hv.createRealm({ ...createRealm(), infusers: [a0] });
+      await hv.allowProxy("1", a1);
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await mineNextBlock();
+
+      // jump 1 day
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24);
+      await hv1.claim({ ...claim(), amount: parseUnits("1000") });
+      await mineNextBlock();
+      expect(await token.balanceOf(a0)).to.equal(parseUnits("0"));
+      expect(await token.balanceOf(a1)).to.equal(parseUnits("1000"));
+    });
+    it("should allow claimers to claim on behalf if authorized proxy and no self claim", async () => {
+      const hv1 = hv.connect(accounts[1]);
+
+      const create = { ...createRealm(), infusers: [a0], claimers: [a1] };
+      create.config.constraints.allowPublicClaiming = false;
+      await hv.createRealm(create);
+      await hv.allowProxy("1", a1);
+      await token.mint(parseUnits("10000"));
+      await collection.mint("420");
+      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
+      await mineNextBlock();
+
+      // jump 1 day
+      await increaseTimestampAndMineNextBlock(60 * 60 * 24);
+      await hv1.claim({ ...claim(), amount: parseUnits("1000") });
+      await mineNextBlock();
+      expect(await token.balanceOf(a0)).to.equal(parseUnits("0"));
+      expect(await token.balanceOf(a1)).to.equal(parseUnits("1000"));
     });
     it("should batch claim tokens", async () => {
       await setAutomine();
@@ -734,7 +819,7 @@ describe("HyperVIBES", function () {
       const hv1 = hv.connect(accounts[1]);
       await expect(
         hv1.claim({ ...claim(), amount: "10000" })
-      ).to.be.revertedWith("not owner or approved");
+      ).to.be.revertedWith("invalid claimer");
     });
     it("should allow claiming if approved", async () => {
       await setAutomine();
@@ -911,10 +996,6 @@ describe("HyperVIBES", function () {
       await hv.claim({ ...claim(), amount: parseUnits("100000") });
       await hv.claim({ ...claim(), amount: parseUnits("100000") }); // several overlcaims
       await increaseTimestampAndMineNextBlock(60 * 60 * 24);
-      expect(
-        (await hv.tokenData("1", collection.address, "420")).balance
-      ).to.equal(parseUnits("9000"));
-      expect(await token.balanceOf(a0)).to.equal(parseUnits("1000"));
       expect(
         await hv.currentMinedTokens("1", collection.address, "420")
       ).to.equal(parseUnits("0"));

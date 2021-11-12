@@ -62,6 +62,10 @@ struct RealmConstraints {
     // allowlist
     bool allowPublicInfusion;
 
+    // if true, msg.sender may claim tokens from owned NFTs. If false,
+    // msg.sender must be on the allowlist
+    bool allowPublicClaiming;
+
     // if true, any NFT from any collection may be infused. If false, contract
     // must be on the allowlist
     bool allowAllCollections;
@@ -74,6 +78,7 @@ struct CreateRealmInput {
     RealmConfig config;
     address[] admins;
     address[] infusers;
+    address[] claimers;
     IERC721[] collections;
 }
 
@@ -84,6 +89,8 @@ struct ModifyRealmInput {
     address[] adminsToRemove;
     address[] infusersToAdd;
     address[] infusersToRemove;
+    address[] claimersToAdd;
+    address[] claimersToRemove;
     IERC721[] collectionsToAdd;
     IERC721[] collectionsToRemove;
 }
@@ -120,6 +127,9 @@ contract HyperVIBES {
     // realm ID -> address -> (is infuser flag)
     mapping(uint256 => mapping(address => bool)) public isInfuser;
 
+    // realm ID -> address -> (is claimer flag)
+    mapping(uint256 => mapping(address => bool)) public isClaimer;
+
     // realm ID -> erc721 -> (is allowed collection flag)
     mapping(uint256 => mapping(IERC721 => bool)) public isCollection;
 
@@ -127,8 +137,8 @@ contract HyperVIBES {
     mapping(uint256 => mapping(IERC721 => mapping(uint256 => TokenData)))
         public tokenData;
 
-    // realm ID -> operator -> infuser -> (is allowed infusion proxy flag)
-    mapping(uint256 => mapping(address => mapping(address => bool))) public isInfusionProxy;
+    // realm ID -> operator -> infuser -> (is allowed proxy flag)
+    mapping(uint256 => mapping(address => mapping(address => bool))) public isProxy;
 
     uint256 public nextRealmId = 1;
 
@@ -150,9 +160,13 @@ contract HyperVIBES {
 
     event CollectionRemoved(uint256 indexed realmId, IERC721 indexed collection);
 
-    event InfusionProxyAdded(uint256 indexed realmId, address indexed proxy);
+    event ClaimerAdded(uint256 indexed realmId, address indexed claimer);
 
-    event InfusionProxyRemoved(uint256 indexed realmId, address indexed proxy);
+    event ClaimerRemoved(uint256 indexed realmId, address indexed claimer);
+
+    event ProxyAdded(uint256 indexed realmId, address indexed proxy);
+
+    event ProxyRemoved(uint256 indexed realmId, address indexed proxy);
 
     event Infused(
         uint256 indexed realmId,
@@ -192,6 +206,10 @@ contract HyperVIBES {
             _addInfuser(realmId, create.infusers[i]);
         }
 
+        for (uint256 i = 0; i < create.claimers.length; i++) {
+            _addClaimer(realmId, create.claimers[i]);
+        }
+
         for (uint256 i = 0; i < create.collections.length; i++) {
             _addCollection(realmId, create.collections[i]);
         }
@@ -212,6 +230,10 @@ contract HyperVIBES {
             _addInfuser(input.realmId, input.infusersToAdd[i]);
         }
 
+        for (uint256 i = 0; i < input.claimersToAdd.length; i++) {
+            _addClaimer(input.realmId, input.claimersToAdd[i]);
+        }
+
         for (uint256 i = 0; i < input.collectionsToAdd.length; i++) {
             _addCollection(input.realmId, input.collectionsToAdd[i]);
         }
@@ -224,6 +246,10 @@ contract HyperVIBES {
 
         for (uint256 i = 0; i < input.infusersToRemove.length; i++) {
             _removeInfuser(input.realmId, input.infusersToRemove[i]);
+        }
+
+        for (uint256 i = 0; i < input.claimersToRemove.length; i++) {
+            _removeClaimer(input.realmId, input.claimersToRemove[i]);
         }
 
         for (uint256 i = 0; i < input.collectionsToRemove.length; i++) {
@@ -261,6 +287,18 @@ contract HyperVIBES {
         require(infuser != address(0), "invalid infuser");
         delete isInfuser[realmId][infuser];
         emit InfuserRemoved(realmId, infuser);
+    }
+
+    function _addClaimer(uint256 realmId, address claimer) internal {
+        require(claimer != address(0), "invalid claimer");
+        isClaimer[realmId][claimer] = true;
+        emit ClaimerAdded(realmId, claimer);
+    }
+
+    function _removeClaimer(uint256 realmId, address claimer) internal {
+        require(claimer != address(0), "invalid claimer");
+        delete isClaimer[realmId][claimer];
+        emit ClaimerRemoved(realmId, claimer);
     }
 
     function _addCollection(uint256 realmId, IERC721 collection) internal {
@@ -338,12 +376,12 @@ contract HyperVIBES {
         bool isOwnedByInfuser = input.collection.ownerOf(input.tokenId) == input.infuser;
         bool isOnInfuserAllowlist = isInfuser[input.realmId][msg.sender];
         bool isOnCollectionAllowlist = isCollection[input.realmId][input.collection];
-        bool isValidInfusionProxy = isInfusionProxy[input.realmId][msg.sender][input.infuser];
+        bool isValidProxy = isProxy[input.realmId][msg.sender][input.infuser];
 
         require(isOwnedByInfuser || !realm.constraints.requireNftIsOwned, "nft not owned by infuser");
         require(isOnInfuserAllowlist || realm.constraints.allowPublicInfusion, "invalid infuser");
         require(isOnCollectionAllowlist || realm.constraints.allowAllCollections, "invalid collection");
-        require(isValidInfusionProxy || msg.sender == input.infuser, "invalid proxy infusion");
+        require(isValidProxy || msg.sender == input.infuser, "invalid proxy");
 
         // if already infused...
         if (data.lastClaimAt != 0) {
@@ -356,18 +394,18 @@ contract HyperVIBES {
         // we made it! 🚀 LFG!
     }
 
-    // allower operator to infuse on behalf of msg.sender for a specific realm
-    function allowInfusionProxy(uint256 realmId, address proxy) external {
+    // allower operator to infuse or claim on behalf of msg.sender for a specific realm
+    function allowProxy(uint256 realmId, address proxy) external {
         require(_realmExists(realmId), "invalid realm");
-        isInfusionProxy[realmId][proxy][msg.sender] = true;
-        emit InfusionProxyAdded(realmId, proxy);
+        isProxy[realmId][proxy][msg.sender] = true;
+        emit ProxyAdded(realmId, proxy);
     }
 
-    // deny operator the ability to infuse on behalf of msg.sender for a specific realm
-    function denyInfusionProxy(uint256 realmId, address proxy) external {
+    // deny operator the ability to infuse or claim on behalf of msg.sender for a specific realm
+    function denyProxy(uint256 realmId, address proxy) external {
         require(_realmExists(realmId), "invalid realm");
-        delete isInfusionProxy[realmId][proxy][msg.sender];
-        emit InfusionProxyRemoved(realmId, proxy);
+        delete isProxy[realmId][proxy][msg.sender];
+        emit ProxyRemoved(realmId, proxy);
     }
 
     // ---
@@ -376,7 +414,7 @@ contract HyperVIBES {
 
     function claim(ClaimInput memory input) public {
         require(_isTokenValid(input.collection, input.tokenId), "invalid token");
-        require(_isApprovedOrOwner(input.collection, input.tokenId, msg.sender), "not owner or approved");
+        require(_isValidClaimer(input.realmId, input.collection, input.tokenId), "invalid claimer");
 
         TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
         require(data.lastClaimAt != 0, "token not infused");
@@ -403,6 +441,32 @@ contract HyperVIBES {
         realmConfig[input.realmId].token.transfer(msg.sender, toClaim);
 
         emit Claimed(input.realmId, input.collection, input.tokenId, toClaim);
+    }
+
+    // returns true if msg.sender can claim for a given (realm/collection/tokenId) tuple
+    function _isValidClaimer(uint256 realmId, IERC721 collection, uint256 tokenId) internal view returns (bool) {
+        address owner = collection.ownerOf(tokenId);
+
+        bool isOwnedOrApproved =
+            owner == msg.sender ||
+            collection.getApproved(tokenId) == msg.sender ||
+            collection.isApprovedForAll(owner, msg.sender);
+        bool isValidProxy = isProxy[realmId][msg.sender][owner];
+
+        // no matter what, msg sender must be owner/approved, or have authorized
+        // a proxy. ensures that claiming can never happen without owner
+        // approval of some sort
+        if (!isOwnedOrApproved && !isValidProxy) {
+            return false;
+        }
+
+        // if public claim is valid, we're good to go
+        if (realmConfig[realmId].constraints.allowPublicClaiming) {
+            return true;
+        }
+
+        // otherwise, must be on claimer list
+        return isClaimer[realmId][msg.sender];
     }
 
     function batchClaim(ClaimInput[] memory batch) external {
@@ -463,16 +527,5 @@ contract HyperVIBES {
         }
     }
 
-    // returns true if operator can manage tokenId
-    function _isApprovedOrOwner(
-        IERC721 collection,
-        uint256 tokenId,
-        address operator
-    ) internal view returns (bool) {
-        address owner = collection.ownerOf(tokenId);
-        return
-            owner == operator ||
-            collection.getApproved(tokenId) == operator ||
-            collection.isApprovedForAll(owner, operator);
-    }
+
 }
