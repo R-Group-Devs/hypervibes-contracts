@@ -340,9 +340,11 @@ contract HyperVIBES {
             ? realm.constraints.maxTokenBalance
             : nextBalance;
         uint256 amountToTransfer = clampedBalance - data.balance;
-        // intentionally omitting an assert for amountToTransfer != 0, its
-        // checked in validateInfusion, and would revert anyway in most erc20
-        // implementations
+
+        // jit assert that this amount is valid within constraints
+        require(amountToTransfer > 0, "nothing to transfer");
+        require(amountToTransfer >= realm.constraints.minInfusionAmount, "amount too low");
+        require(amountToTransfer <= realm.constraints.maxInfusionAmount, "amount too high");
 
         // pull tokens from msg sender into the contract, executing transferFrom
         // last to ensure no malicious erc-20 can cause re-entrancy issues
@@ -369,10 +371,6 @@ contract HyperVIBES {
         require(_isTokenValid(input.collection, input.tokenId), "invalid token");
         require(_realmExists(input.realmId), "invalid realm");
 
-        // assert amount to be infused is within the min and max constraints
-        require(input.amount >= realm.constraints.minInfusionAmount, "amount too low");
-        require(input.amount <= realm.constraints.maxInfusionAmount, "amount too high");
-
         bool isOwnedByInfuser = input.collection.ownerOf(input.tokenId) == input.infuser;
         bool isOnInfuserAllowlist = isInfuser[input.realmId][msg.sender];
         bool isOnCollectionAllowlist = isCollection[input.realmId][input.collection];
@@ -387,11 +385,6 @@ contract HyperVIBES {
         if (data.lastClaimAt != 0) {
             require(realm.constraints.allowMultiInfuse, "multi infuse disabled");
         }
-
-        // if token balance is already at max, clamped amount will be zero
-        require(data.balance < realm.constraints.maxTokenBalance, "max token balance");
-
-        // we made it! 🚀 LFG!
     }
 
     // allower operator to infuse or claim on behalf of msg.sender for a specific realm
@@ -526,6 +519,4 @@ contract HyperVIBES {
             return false;
         }
     }
-
-
 }

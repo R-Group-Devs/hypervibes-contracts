@@ -619,7 +619,20 @@ describe("HyperVIBES", function () {
       await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
       await expect(
         hv.infuse({ ...infuse(), amount: parseUnits("10000") })
-      ).to.be.revertedWith("max token balance");
+      ).to.be.revertedWith("nothing to transfer");
+    });
+    it("should revert if clamped infusion amount is less than min infusion amount", async () => {
+      await token.mint(parseUnits("100000"));
+      await collection.mint("420");
+      const create = { ...createRealm(), infusers: [a0] };
+      create.config.constraints.maxTokenBalance = parseUnits("10000");
+      create.config.constraints.allowMultiInfuse = true;
+      create.config.constraints.minInfusionAmount = parseUnits("1000");
+      await hv.createRealm(create);
+      await hv.infuse({ ...infuse(), amount: parseUnits("9999") });
+      await expect(
+        hv.infuse({ ...infuse(), amount: parseUnits("10000") })
+      ).to.be.revertedWith("amount too low");
     });
   });
   describe("infusion proxy management", () => {
