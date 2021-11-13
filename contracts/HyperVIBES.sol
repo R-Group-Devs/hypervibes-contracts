@@ -15,10 +15,32 @@ pragma solidity ^0.8.0;
     The possibilities are endless in the realms of your imagination.
     What would you do with that power?
 
-
                             Dreamt up & built at
                                 Rarible DAO
 
+                                  * * * *
+
+    HyperVIBES is a public and free protocol from Rarible DAO that lets you
+    infuse any ERC-20 token into ERC-721 NFTs from any minting platform.
+
+    Infused tokens can be mined and claimed by the NFT owner over time.
+
+    Create a fully isolated and independently configured HyperVIBES realm to run
+    your own experiments or protocols without having to deploy a smart contract.
+
+    HyperVIBES is:
+    - 🎁 Open Source
+    - 🥳 Massively Multiplayer
+    - 🌈 Public Infrastructure
+    - 🚀 Unstoppable and Censor-Proof
+    - 🌎 Multi-chain
+    - 💖 Free Forever
+
+    Feel free to use HyperVIBES in any way you want.
+
+    https://hypervibes.xyz
+    https://app.hypervibes.xyz
+    https://docs.hypervibes.xyz
 
 */
 
