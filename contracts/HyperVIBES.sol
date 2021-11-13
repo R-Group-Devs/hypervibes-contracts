@@ -47,6 +47,8 @@ pragma solidity ^0.8.0;
 import "./IHyperVIBES.sol";
 
 contract HyperVIBES is IHyperVIBES {
+    bool constant public FEEL_FREE_TO_USE_HYPERVIBES_IN_ANY_WAY_YOU_WANT = true;
+
     // ---
     // storage
     // ---
