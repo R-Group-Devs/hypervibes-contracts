@@ -49,59 +49,89 @@ import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
 
 // data stored for-each infused token
 struct TokenData {
+    // total staked tokens for this NFT
     uint256 balance;
+
+    // timestamp of last executed claim, determines claimable tokens
     uint256 lastClaimAt;
 }
 
 // per-realm configuration
 struct RealmConfig {
+    // ERC-20 for the realm
     IERC20 token;
+
+    // daily token mining rate -- constant for the entire realm
     uint256 dailyRate;
+
+    // configured constraints for the realm
     RealmConstraints constraints;
 }
 
-// modifyiable realm constraints
+// constraint parameters for a realm
 struct RealmConstraints {
-    // min amount allowed for a single infusion
+    // An NFT must be infused with at least this amount of the token every time
+    // it's infused.
     uint256 minInfusionAmount;
 
-    // token cannot have a total infused balance greater than `maxTokenBalance`
+    // An NFT's infused balance cannot exceed this amount. If an infusion would
+    // result in exceeding the max token balance, amount transferred is clamped
+    // to the max.
     uint256 maxTokenBalance;
 
-    // cannot execute a claim for less than this amount
+    // When claiming mined tokens, at least this much must be claimed at a time.
     uint256 minClaimAmount;
 
-    // if true, infuser must own the NFT being infused
+    // If true, the infuser must own the NFT at time of infusion.
     bool requireNftIsOwned;
 
-    // if true, an nft can be infused multiple times
+    // If true, an NFT can be infused more than once in the same realm.
     bool allowMultiInfuse;
 
-    // if true, any msg.sender may infuse. If false, msg.sender must be on the
-    // allowlist
+    // If true, anybody with enough tokens may infuse an NFT. If false, they
+    // must be on the infusers list.
     bool allowPublicInfusion;
 
-    // if true, msg.sender may claim tokens from owned NFTs. If false,
-    // msg.sender must be on the allowlist
+    // If true, anybody who owns an infused NFT may claim the mined tokens. If
+    // false, they must be on the claimers list
     bool allowPublicClaiming;
 
-    // if true, any NFT from any collection may be infused. If false, contract
-    // must be on the allowlist
+    // If true, NFTs from any ERC-721 contract can be infused. If false, the
+    // contract address must be on the collections list.
     bool allowAllCollections;
 }
 
 // data provided when creating a realm
 struct CreateRealmInput {
+    // Display name for the realm. Does not have to be unique across HyperVIBES.
     string name;
+
+    // Description for the realm.
     string description;
+
+    // token, mining rate, an constraint data
     RealmConfig config;
+
+    // Addresses that are allowed to add or remove admins, infusers, claimers,
+    // or collections to the realm.
     address[] admins;
+
+    // Addresses that are allowed to infuse NFTs. Ignored if the allow public
+    // infusion constraint is true.
     address[] infusers;
+
+    // Addresses that are allowed to claim mined tokens from an NFT. Ignored if
+    // the allow public claiming constraint is true.
     address[] claimers;
+
+    // NFT contract addresses that can be infused. Ignore if the allow all
+    // collections constraint is true.
     IERC721[] collections;
 }
 
-// data provided when modifying a realm
+// data provided when modifying a realm -- constraints, token, etc are not
+// modifiable, but admins/infusers/claimers/collections can be added and removed
+// by an admin
 struct ModifyRealmInput {
     uint256 realmId;
     address[] adminsToAdd;
@@ -117,18 +147,38 @@ struct ModifyRealmInput {
 // data provided when infusing an nft
 struct InfuseInput {
     uint256 realmId;
+
+    // NFT contract address
     IERC721 collection;
+
+    // NFT token ID
     uint256 tokenId;
+
+    // Infuser is manually specified, in the case of proxy infusions, msg.sender
+    // might not be the infuser. Proxy infusions require msg.sender to be an
+    // approved proxy by the credited infuser
     address infuser;
+
+    // total amount of tokens to infuse. Actual infusion amount may be less
+    // based on maxTokenBalance realm constraint
     uint256 amount;
+
+    // emitted with event
     string comment;
 }
 
 // data provided when claiming from an infused nft
 struct ClaimInput {
     uint256 realmId;
+
+    // NFT contract address
     IERC721 collection;
+
+    // NFT token ID
     uint256 tokenId;
+
+    // amount to claim. If this is greater than total claimable, only the max
+    // will be claimed (use a huge number here to "claim all" effectively)
     uint256 amount;
 }
 
