@@ -13,22 +13,9 @@ Smart contracts for the HyperVIBES project.
 
 ## Current Deployments
 
-| network | address |
-| --- | --- |
-| ethereum mainnet | n/a
-| polygon mainnet | n/a
-| xDai mainnet | n/a
-| mumbai testnet | n/a
-| ropsten testnet | [`0x9Dd0d07224bAA34Da65709927f99BEe6DAFE6862`](https://ropsten.etherscan.io/address/0x9Dd0d07224bAA34Da65709927f99BEe6DAFE6862)
-| rinkeby testnet | [`0xe40d31e51bEc80ba5Bd1A1074134FA61cc557927`](https://rinkeby.etherscan.io/address/0xe40d31e51bEc80ba5Bd1A1074134FA61cc557927)
+Find all contract addresses at [docs.hypervibes.xyz](https://docs.hypervibes.xyz):
 
-### Rinkeby Testnet Fixtures
-
-| contract | address |
-| --- | --- |
-| MockERC20 | [`0xA50f703771d04D9e76e03b20720539Fc014aaA40`](https://rinkeby.etherscan.io/address/0xA50f703771d04D9e76e03b20720539Fc014aaA40)
-| MockERC721 | [`0xcF5D09efF740066D202E33bb59FA07FEC03Db06E`](https://rinkeby.etherscan.io/address/0xcF5D09efF740066D202E33bb59FA07FEC03Db06E)
-| ReferenceERC721 | [`0x10223Ef0924A687666c469790c29C83935d4EA59`](https://rinkeby.etherscan.io/address/0x10223Ef0924A687666c469790c29C83935d4EA59)
+* https://docs.hypervibes.xyz/developers/links-and-repos
 
 ## Development
 
