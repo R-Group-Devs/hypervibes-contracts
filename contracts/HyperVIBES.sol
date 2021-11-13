@@ -44,145 +44,9 @@ pragma solidity ^0.8.0;
 
 */
 
-import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
-import "@openzeppelin/contracts/token/ERC721/IERC721.sol";
+import "./IHyperVIBES.sol";
 
-// data stored for-each infused token
-struct TokenData {
-    // total staked tokens for this NFT
-    uint256 balance;
-
-    // timestamp of last executed claim, determines claimable tokens
-    uint256 lastClaimAt;
-}
-
-// per-realm configuration
-struct RealmConfig {
-    // ERC-20 for the realm
-    IERC20 token;
-
-    // daily token mining rate -- constant for the entire realm
-    uint256 dailyRate;
-
-    // configured constraints for the realm
-    RealmConstraints constraints;
-}
-
-// constraint parameters for a realm
-struct RealmConstraints {
-    // An NFT must be infused with at least this amount of the token every time
-    // it's infused.
-    uint256 minInfusionAmount;
-
-    // An NFT's infused balance cannot exceed this amount. If an infusion would
-    // result in exceeding the max token balance, amount transferred is clamped
-    // to the max.
-    uint256 maxTokenBalance;
-
-    // When claiming mined tokens, at least this much must be claimed at a time.
-    uint256 minClaimAmount;
-
-    // If true, the infuser must own the NFT at time of infusion.
-    bool requireNftIsOwned;
-
-    // If true, an NFT can be infused more than once in the same realm.
-    bool allowMultiInfuse;
-
-    // If true, anybody with enough tokens may infuse an NFT. If false, they
-    // must be on the infusers list.
-    bool allowPublicInfusion;
-
-    // If true, anybody who owns an infused NFT may claim the mined tokens. If
-    // false, they must be on the claimers list
-    bool allowPublicClaiming;
-
-    // If true, NFTs from any ERC-721 contract can be infused. If false, the
-    // contract address must be on the collections list.
-    bool allowAllCollections;
-}
-
-// data provided when creating a realm
-struct CreateRealmInput {
-    // Display name for the realm. Does not have to be unique across HyperVIBES.
-    string name;
-
-    // Description for the realm.
-    string description;
-
-    // token, mining rate, an constraint data
-    RealmConfig config;
-
-    // Addresses that are allowed to add or remove admins, infusers, claimers,
-    // or collections to the realm.
-    address[] admins;
-
-    // Addresses that are allowed to infuse NFTs. Ignored if the allow public
-    // infusion constraint is true.
-    address[] infusers;
-
-    // Addresses that are allowed to claim mined tokens from an NFT. Ignored if
-    // the allow public claiming constraint is true.
-    address[] claimers;
-
-    // NFT contract addresses that can be infused. Ignore if the allow all
-    // collections constraint is true.
-    IERC721[] collections;
-}
-
-// data provided when modifying a realm -- constraints, token, etc are not
-// modifiable, but admins/infusers/claimers/collections can be added and removed
-// by an admin
-struct ModifyRealmInput {
-    uint256 realmId;
-    address[] adminsToAdd;
-    address[] adminsToRemove;
-    address[] infusersToAdd;
-    address[] infusersToRemove;
-    address[] claimersToAdd;
-    address[] claimersToRemove;
-    IERC721[] collectionsToAdd;
-    IERC721[] collectionsToRemove;
-}
-
-// data provided when infusing an nft
-struct InfuseInput {
-    uint256 realmId;
-
-    // NFT contract address
-    IERC721 collection;
-
-    // NFT token ID
-    uint256 tokenId;
-
-    // Infuser is manually specified, in the case of proxy infusions, msg.sender
-    // might not be the infuser. Proxy infusions require msg.sender to be an
-    // approved proxy by the credited infuser
-    address infuser;
-
-    // total amount of tokens to infuse. Actual infusion amount may be less
-    // based on maxTokenBalance realm constraint
-    uint256 amount;
-
-    // emitted with event
-    string comment;
-}
-
-// data provided when claiming from an infused nft
-struct ClaimInput {
-    uint256 realmId;
-
-    // NFT contract address
-    IERC721 collection;
-
-    // NFT token ID
-    uint256 tokenId;
-
-    // amount to claim. If this is greater than total claimable, only the max
-    // will be claimed (use a huge number here to "claim all" effectively)
-    uint256 amount;
-}
-
-contract HyperVIBES {
+contract HyperVIBES is IHyperVIBES {
     // ---
     // storage
     // ---
@@ -212,56 +76,17 @@ contract HyperVIBES {
     uint256 public nextRealmId = 1;
 
     // ---
-    // events
-    // ---
-
-    event RealmCreated(uint256 indexed realmId, string name, string description);
-
-    event AdminAdded(uint256 indexed realmId, address indexed admin);
-
-    event AdminRemoved(uint256 indexed realmId, address indexed admin);
-
-    event InfuserAdded(uint256 indexed realmId, address indexed infuser);
-
-    event InfuserRemoved(uint256 indexed realmId, address indexed infuser);
-
-    event CollectionAdded(uint256 indexed realmId, IERC721 indexed collection);
-
-    event CollectionRemoved(uint256 indexed realmId, IERC721 indexed collection);
-
-    event ClaimerAdded(uint256 indexed realmId, address indexed claimer);
-
-    event ClaimerRemoved(uint256 indexed realmId, address indexed claimer);
-
-    event ProxyAdded(uint256 indexed realmId, address indexed proxy);
-
-    event ProxyRemoved(uint256 indexed realmId, address indexed proxy);
-
-    event Infused(
-        uint256 indexed realmId,
-        IERC721 indexed collection,
-        uint256 indexed tokenId,
-        address infuser,
-        uint256 amount,
-        string comment
-    );
-
-    event Claimed(
-        uint256 indexed realmId,
-        IERC721 indexed collection,
-        uint256 indexed tokenId,
-        uint256 amount
-    );
-
-    // ---
     // admin mutations
     // ---
 
     // setup a new realm
-    function createRealm(CreateRealmInput memory create) external {
+    function createRealm(CreateRealmInput memory create) override external {
         require(create.config.token != IERC20(address(0)), "invalid token");
+        require(create.config.constraints.maxTokenBalance > 0, "invalid max token balance");
+        require(
+            create.config.constraints.minClaimAmount <= create.config.constraints.maxTokenBalance,
+            "invalid min claim amount");
 
-        _validateRealmConstraints(create.config.constraints);
         uint256 realmId = nextRealmId++;
         realmConfig[realmId] = create.config;
 
@@ -285,7 +110,7 @@ contract HyperVIBES {
     }
 
     // update mutable configuration for a realm
-    function modifyRealm(ModifyRealmInput memory input) public {
+    function modifyRealm(ModifyRealmInput memory input) override public {
         require(_realmExists(input.realmId), "invalid realm");
         require(isAdmin[input.realmId][msg.sender], "not realm admin");
 
@@ -324,12 +149,6 @@ contract HyperVIBES {
         for (uint256 i = 0; i < input.collectionsToRemove.length; i++) {
             _removeCollection(input.realmId, input.collectionsToRemove[i]);
         }
-    }
-
-    // check for constraint values that are nonsensical, revert if a problem
-    function _validateRealmConstraints(RealmConstraints memory constraints) internal pure {
-        require(constraints.maxTokenBalance > 0, "invalid max token balance");
-        require(constraints.minClaimAmount <= constraints.maxTokenBalance, "invalid min claim amount");
     }
 
     function _addAdmin(uint256 realmId, address admin) internal {
@@ -384,11 +203,10 @@ contract HyperVIBES {
     // infuser mutations
     // ---
 
-    function infuse(InfuseInput memory input) public {
+    function infuse(InfuseInput memory input) override public {
         TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
         RealmConfig memory realm = realmConfig[input.realmId];
 
-        // ensure input is valid as a function of realm state, token state, and infusion input
         _validateInfusion(input, data, realm);
 
         // initialize token storage if first infusion
@@ -427,12 +245,6 @@ contract HyperVIBES {
         );
     }
 
-    function batchInfuse(InfuseInput[] memory batch) external {
-        for (uint256 i; i < batch.length; i++) {
-            infuse(batch[i]);
-        }
-    }
-
     function _validateInfusion(InfuseInput memory input, TokenData memory data, RealmConfig memory realm) internal view {
         require(_isTokenValid(input.collection, input.tokenId), "invalid token");
         require(_realmExists(input.realmId), "invalid realm");
@@ -453,15 +265,19 @@ contract HyperVIBES {
         }
     }
 
+    // ---
+    // proxy mutations
+    // ---
+
     // allower operator to infuse or claim on behalf of msg.sender for a specific realm
-    function allowProxy(uint256 realmId, address proxy) external {
+    function allowProxy(uint256 realmId, address proxy) override external {
         require(_realmExists(realmId), "invalid realm");
         isProxy[realmId][proxy][msg.sender] = true;
         emit ProxyAdded(realmId, proxy);
     }
 
     // deny operator the ability to infuse or claim on behalf of msg.sender for a specific realm
-    function denyProxy(uint256 realmId, address proxy) external {
+    function denyProxy(uint256 realmId, address proxy) override external {
         require(_realmExists(realmId), "invalid realm");
         delete isProxy[realmId][proxy][msg.sender];
         emit ProxyRemoved(realmId, proxy);
@@ -471,7 +287,7 @@ contract HyperVIBES {
     // claimer mutations
     // ---
 
-    function claim(ClaimInput memory input) public {
+    function claim(ClaimInput memory input) override public {
         require(_isTokenValid(input.collection, input.tokenId), "invalid token");
         require(_isValidClaimer(input.realmId, input.collection, input.tokenId), "invalid claimer");
 
@@ -528,22 +344,40 @@ contract HyperVIBES {
         return isClaimer[realmId][msg.sender];
     }
 
-    function batchClaim(ClaimInput[] memory batch) external {
+
+    // ---
+    // batch utils
+    // ---
+
+    function batchClaim(ClaimInput[] memory batch) override external {
         for (uint256 i = 0; i < batch.length; i++) {
             claim(batch[i]);
         }
     }
 
+    function batchInfuse(InfuseInput[] memory batch) override external {
+        for (uint256 i; i < batch.length; i++) {
+            infuse(batch[i]);
+        }
+    }
+
+
     // ---
     // views
     // ---
 
-    function name() external pure returns (string memory) {
+    function name() override external pure returns (string memory) {
         return "HyperVIBES";
     }
 
 
-    function currentMinedTokens(uint256 realmId, IERC721 collection, uint256 tokenId) external view returns (uint256) {
+    // total amount of mined tokens
+    // will return 0 if the token is not infused instead of reverting
+    // will return 0 if the does not exist (burned, invalid contract or id)
+    // will return amount mined even if not claimable (minClaimAmount constraint)
+    function currentMinedTokens(uint256 realmId, IERC721 collection, uint256 tokenId)
+        override external view returns (uint256)
+    {
         require(_realmExists(realmId), "invalid realm");
 
         TokenData memory data = tokenData[realmId][collection][tokenId];
