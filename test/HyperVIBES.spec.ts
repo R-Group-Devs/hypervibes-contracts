@@ -41,7 +41,6 @@ describe("HyperVIBES", function () {
   const realmConstraints = () => {
     return {
       minInfusionAmount: parseUnits("0"),
-      maxInfusionAmount: parseUnits("100000"),
       maxTokenBalance: parseUnits("100000"),
       minClaimAmount: parseUnits("0"),
       requireNftIsOwned: true,
@@ -125,22 +124,6 @@ describe("HyperVIBES", function () {
       create.config.constraints.minClaimAmount = parseUnits("1001");
       await expect(hv.createRealm(create)).to.be.revertedWith(
         "invalid min claim amount"
-      );
-    });
-    it("should revert if min infusion amount exceeds max infusion amount", async () => {
-      const create = createRealm();
-      create.config.constraints.minInfusionAmount = BigNumber.from(500);
-      create.config.constraints.maxInfusionAmount = BigNumber.from(0);
-      await expect(hv.createRealm(create)).to.be.revertedWith(
-        "invalid min/max amount"
-      );
-    });
-    it("should revert if max infusion amount is zero", async () => {
-      const create = createRealm();
-      create.config.constraints.minInfusionAmount = BigNumber.from(0);
-      create.config.constraints.maxInfusionAmount = BigNumber.from(0);
-      await expect(hv.createRealm(create)).to.be.revertedWith(
-        "invalid max amount"
       );
     });
     it("should revert if max token balance is zero", async () => {
@@ -515,16 +498,6 @@ describe("HyperVIBES", function () {
       await expect(
         hv.infuse({ ...infuse(), realmId: "123" })
       ).to.be.revertedWith("invalid realm");
-    });
-    it("should revert if amount is too high", async () => {
-      await token.mint(parseUnits("100000"));
-      await collection.mint("420");
-      const create = { ...createRealm(), infusers: [a0] };
-      create.config.constraints.maxInfusionAmount = parseUnits("1000");
-      await hv.createRealm(create);
-      await expect(
-        hv.infuse({ ...infuse(), amount: parseUnits("10000") })
-      ).to.be.revertedWith("amount too high");
     });
     it("should revert if amount is too low", async () => {
       await token.mint(parseUnits("100000"));

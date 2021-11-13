@@ -43,9 +43,6 @@ struct RealmConstraints {
     // min amount allowed for a single infusion
     uint256 minInfusionAmount;
 
-    // max amount allowed for a single infusion
-    uint256 maxInfusionAmount;
-
     // token cannot have a total infused balance greater than `maxTokenBalance`
     uint256 maxTokenBalance;
 
@@ -259,8 +256,6 @@ contract HyperVIBES {
 
     // check for constraint values that are nonsensical, revert if a problem
     function _validateRealmConstraints(RealmConstraints memory constraints) internal pure {
-        require(constraints.minInfusionAmount <= constraints.maxInfusionAmount, "invalid min/max amount");
-        require(constraints.maxInfusionAmount > 0, "invalid max amount");
         require(constraints.maxTokenBalance > 0, "invalid max token balance");
         require(constraints.minClaimAmount <= constraints.maxTokenBalance, "invalid min claim amount");
     }
@@ -344,7 +339,6 @@ contract HyperVIBES {
         // jit assert that this amount is valid within constraints
         require(amountToTransfer > 0, "nothing to transfer");
         require(amountToTransfer >= realm.constraints.minInfusionAmount, "amount too low");
-        require(amountToTransfer <= realm.constraints.maxInfusionAmount, "amount too high");
 
         // pull tokens from msg sender into the contract, executing transferFrom
         // last to ensure no malicious erc-20 can cause re-entrancy issues
