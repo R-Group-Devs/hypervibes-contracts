@@ -178,14 +178,14 @@ interface IHyperVIBES {
         uint256 amount
     );
 
-    // setup a new realm
-    function createRealm(CreateRealmInput memory create) external;
+    // setup a new realm, returns the ID
+    function createRealm(CreateRealmInput memory create) external returns (uint256);
 
     // update admins, infusers, claimers, or collections for a realm
     function modifyRealm(ModifyRealmInput memory input) external;
 
     // infuse an nft
-    function infuse(InfuseInput memory input) external;
+    function infuse(InfuseInput memory input) external returns (uint256);
 
     // allower operator to infuse or claim on behalf of msg.sender for a specific realm
     function allowProxy(uint256 realmId, address proxy) external;
@@ -194,13 +194,13 @@ interface IHyperVIBES {
     function denyProxy(uint256 realmId, address proxy) external;
 
     // claim infused tokens
-    function claim(ClaimInput memory input) external;
+    function claim(ClaimInput memory input) external returns (uint256);
 
     // execute a batch of claims
-    function batchClaim(ClaimInput[] memory batch) external;
+    function batchClaim(ClaimInput[] memory batch) external returns (uint256);
 
     // execute a batch of infusions
-    function batchInfuse(InfuseInput[] memory batch) external;
+    function batchInfuse(InfuseInput[] memory batch) external returns (uint256);
 
     // HyperVIBES
     function name() external pure returns (string memory);

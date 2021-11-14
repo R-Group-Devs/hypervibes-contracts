@@ -82,7 +82,7 @@ contract HyperVIBES is IHyperVIBES {
     // ---
 
     // setup a new realm
-    function createRealm(CreateRealmInput memory create) override external {
+    function createRealm(CreateRealmInput memory create) override external returns (uint256) {
         require(create.config.token != IERC20(address(0)), "invalid token");
         require(create.config.constraints.maxTokenBalance > 0, "invalid max token balance");
         require(
@@ -109,6 +109,8 @@ contract HyperVIBES is IHyperVIBES {
         for (uint256 i = 0; i < create.collections.length; i++) {
             _addCollection(realmId, create.collections[i]);
         }
+
+        return realmId;
     }
 
     // update mutable configuration for a realm
@@ -205,7 +207,7 @@ contract HyperVIBES is IHyperVIBES {
     // infuser mutations
     // ---
 
-    function infuse(InfuseInput memory input) override public {
+    function infuse(InfuseInput memory input) override public returns (uint256) {
         TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
         RealmConfig memory realm = realmConfig[input.realmId];
 
@@ -245,6 +247,8 @@ contract HyperVIBES is IHyperVIBES {
             input.amount,
             input.comment
         );
+
+        return amountToTransfer;
     }
 
     function _validateInfusion(InfuseInput memory input, TokenData memory data, RealmConfig memory realm) internal view {
@@ -289,7 +293,7 @@ contract HyperVIBES is IHyperVIBES {
     // claimer mutations
     // ---
 
-    function claim(ClaimInput memory input) override public {
+    function claim(ClaimInput memory input) override public returns (uint256) {
         require(_isTokenValid(input.collection, input.tokenId), "invalid token");
         require(_isValidClaimer(input.realmId, input.collection, input.tokenId), "invalid claimer");
 
@@ -318,6 +322,8 @@ contract HyperVIBES is IHyperVIBES {
         realmConfig[input.realmId].token.transfer(msg.sender, toClaim);
 
         emit Claimed(input.realmId, input.collection, input.tokenId, toClaim);
+
+        return toClaim;
     }
 
     // returns true if msg.sender can claim for a given (realm/collection/tokenId) tuple
@@ -348,16 +354,20 @@ contract HyperVIBES is IHyperVIBES {
     // batch utils
     // ---
 
-    function batchClaim(ClaimInput[] memory batch) override external {
+    function batchClaim(ClaimInput[] memory batch) override external returns (uint256) {
+        uint256 totalClaimed = 0;
         for (uint256 i = 0; i < batch.length; i++) {
-            claim(batch[i]);
+            totalClaimed += claim(batch[i]);
         }
+        return totalClaimed;
     }
 
-    function batchInfuse(InfuseInput[] memory batch) override external {
+    function batchInfuse(InfuseInput[] memory batch) override external returns (uint256) {
+        uint256 totalInfused = 0;
         for (uint256 i; i < batch.length; i++) {
-            infuse(batch[i]);
+            totalInfused += infuse(batch[i]);
         }
+        return totalInfused;
     }
 
 
