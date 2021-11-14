@@ -324,16 +324,13 @@ contract HyperVIBES is IHyperVIBES {
     function _isValidClaimer(uint256 realmId, IERC721 collection, uint256 tokenId) internal view returns (bool) {
         address owner = collection.ownerOf(tokenId);
 
-        bool isOwnedOrApproved =
-            owner == msg.sender ||
-            collection.getApproved(tokenId) == msg.sender ||
-            collection.isApprovedForAll(owner, msg.sender);
+        bool isOwned = owner == msg.sender;
         bool isValidProxy = isProxy[realmId][msg.sender][owner];
 
-        // no matter what, msg sender must be owner/approved, or have authorized
-        // a proxy. ensures that claiming can never happen without owner
-        // approval of some sort
-        if (!isOwnedOrApproved && !isValidProxy) {
+        // no matter what, msg sender must be owner or have authorized a proxy.
+        // ensures that claiming can never happen without owner approval of some
+        // sort
+        if (!isOwned && !isValidProxy) {
             return false;
         }
 

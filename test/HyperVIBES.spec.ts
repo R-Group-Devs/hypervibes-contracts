@@ -844,18 +844,6 @@ describe("HyperVIBES", function () {
         hv1.claim({ ...claim(), amount: "10000" })
       ).to.be.revertedWith("invalid claimer");
     });
-    it("should allow claiming if approved", async () => {
-      await setAutomine();
-      await hv.createRealm({ ...createRealm(), infusers: [a0] });
-      await token.mint(parseUnits("10000"));
-      await collection.mint("420");
-      await collection.approve(a1, "420"); // <-- a1 approved for token
-      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
-      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 1000);
-      const hv1 = hv.connect(accounts[1]);
-      await hv1.claim({ ...claim(), amount: parseUnits("1000") });
-      expect(await token.balanceOf(a1)).to.equal(parseUnits("1000"));
-    });
     it("should revert if owned but public claiming is disabled", async () => {
       await setAutomine();
       const create = { ...createRealm(), infusers: [a0] };
@@ -883,18 +871,6 @@ describe("HyperVIBES", function () {
       await expect(
         hv1.claim({ ...claim(), amount: parseUnits("1000") })
       ).to.be.revertedWith("invalid claimer");
-    });
-    it("should allow claiming if approved for all", async () => {
-      await setAutomine();
-      await hv.createRealm({ ...createRealm(), infusers: [a0] });
-      await token.mint(parseUnits("10000"));
-      await collection.mint("420");
-      await collection.setApprovalForAll(a1, true); // <-- a1 approved for token
-      await hv.infuse({ ...infuse(), amount: parseUnits("10000") });
-      await increaseTimestampAndMineNextBlock(60 * 60 * 24 * 1000);
-      const hv1 = hv.connect(accounts[1]);
-      await hv1.claim({ ...claim(), amount: parseUnits("1000") });
-      expect(await token.balanceOf(a1)).to.equal(parseUnits("1000"));
     });
     it("should revert if attempting to claim from un-infused token", async () => {
       await setAutomine();
