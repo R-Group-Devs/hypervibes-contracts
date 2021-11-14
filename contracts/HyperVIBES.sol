@@ -365,7 +365,10 @@ contract HyperVIBES is IHyperVIBES, ReentrancyGuard {
     // batch utils
     // ---
 
-    function batchClaim(ClaimInput[] memory batch) override external returns (uint256) {
+    function batchClaim(ClaimInput[] memory batch)
+        override external nonReentrant
+        returns (uint256)
+    {
         uint256 totalClaimed = 0;
         for (uint256 i = 0; i < batch.length; i++) {
             totalClaimed += _claim(batch[i]);
@@ -373,7 +376,10 @@ contract HyperVIBES is IHyperVIBES, ReentrancyGuard {
         return totalClaimed;
     }
 
-    function batchInfuse(InfuseInput[] memory batch) override external returns (uint256) {
+    function batchInfuse(InfuseInput[] memory batch)
+        override external nonReentrant
+        returns (uint256)
+    {
         uint256 totalInfused = 0;
         for (uint256 i; i < batch.length; i++) {
             totalInfused += _infuse(batch[i]);
@@ -429,9 +435,7 @@ contract HyperVIBES is IHyperVIBES, ReentrancyGuard {
 
     // returns true if token exists (and is not burnt)
     function _isTokenValid(IERC721 collection, uint256 tokenId)
-        internal
-        view
-        returns (bool)
+        internal view returns (bool)
     {
         try collection.ownerOf(tokenId) returns (address) {
             return true;
