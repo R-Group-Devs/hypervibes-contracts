@@ -45,8 +45,9 @@ pragma solidity ^0.8.0;
 */
 
 import "./IHyperVIBES.sol";
+import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 
-contract HyperVIBES is IHyperVIBES {
+contract HyperVIBES is IHyperVIBES, ReentrancyGuard {
     bool constant public FEEL_FREE_TO_USE_HYPERVIBES_IN_ANY_WAY_YOU_WANT = true;
 
     // ---
@@ -114,7 +115,7 @@ contract HyperVIBES is IHyperVIBES {
     }
 
     // update mutable configuration for a realm
-    function modifyRealm(ModifyRealmInput memory input) override public {
+    function modifyRealm(ModifyRealmInput memory input) override external {
         require(_realmExists(input.realmId), "invalid realm");
         require(isAdmin[input.realmId][msg.sender], "not realm admin");
 
@@ -207,7 +208,12 @@ contract HyperVIBES is IHyperVIBES {
     // infuser mutations
     // ---
 
-    function infuse(InfuseInput memory input) override public returns (uint256) {
+    // nonReentrant wrapper
+    function infuse(InfuseInput memory input) override external nonReentrant returns (uint256) {
+        return _infuse(input);
+    }
+
+    function _infuse(InfuseInput memory input) private returns (uint256) {
         TokenData storage data = tokenData[input.realmId][input.collection][input.tokenId];
         RealmConfig memory realm = realmConfig[input.realmId];
 
@@ -293,7 +299,12 @@ contract HyperVIBES is IHyperVIBES {
     // claimer mutations
     // ---
 
-    function claim(ClaimInput memory input) override public returns (uint256) {
+    // nonReentrant wrapper
+    function claim(ClaimInput memory input) override external nonReentrant returns (uint256) {
+        return _claim(input);
+    }
+
+    function _claim(ClaimInput memory input) private returns (uint256) {
         require(_isTokenValid(input.collection, input.tokenId), "invalid token");
         require(_isValidClaimer(input.realmId, input.collection, input.tokenId), "invalid claimer");
 
@@ -357,7 +368,7 @@ contract HyperVIBES is IHyperVIBES {
     function batchClaim(ClaimInput[] memory batch) override external returns (uint256) {
         uint256 totalClaimed = 0;
         for (uint256 i = 0; i < batch.length; i++) {
-            totalClaimed += claim(batch[i]);
+            totalClaimed += _claim(batch[i]);
         }
         return totalClaimed;
     }
@@ -365,7 +376,7 @@ contract HyperVIBES is IHyperVIBES {
     function batchInfuse(InfuseInput[] memory batch) override external returns (uint256) {
         uint256 totalInfused = 0;
         for (uint256 i; i < batch.length; i++) {
-            totalInfused += infuse(batch[i]);
+            totalInfused += _infuse(batch[i]);
         }
         return totalInfused;
     }
