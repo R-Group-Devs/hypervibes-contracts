@@ -39,6 +39,7 @@ const config: HardhatUserConfig = {
   networks: {
     ropsten: { url: process.env.ROPSTEN_URL || "", accounts },
     rinkeby: { url: process.env.RINKEBY_URL || "", accounts },
+    goerli: { url: process.env.GOERLI_URL || "", accounts },
     eth: { url: process.env.ETH_URL || "", accounts },
     mumbai: { url: process.env.MUMBAI_URL || "", accounts },
     polygon: { url: process.env.POLYGON_URL || "", accounts },
