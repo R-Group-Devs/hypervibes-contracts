@@ -240,8 +240,7 @@ contract HyperVIBES is IHyperVIBES, ReentrancyGuard {
         require(amountToTransfer > 0, "nothing to transfer");
         require(amountToTransfer >= realm.constraints.minInfusionAmount, "amount too low");
 
-        // pull tokens from msg sender into the contract, executing transferFrom
-        // last to ensure no malicious erc-20 can cause re-entrancy issues
+        // pull tokens from msg sender into the contract
         data.balance += amountToTransfer;
         realm.token.transferFrom(msg.sender, address(this), amountToTransfer);
 
@@ -326,8 +325,7 @@ contract HyperVIBES is IHyperVIBES, ReentrancyGuard {
         // claim at = last + (to claim / rate) * 1 day, rewritten for div last
         uint256 claimAt = data.lastClaimAt + (toClaim * 1 days) / realmConfig[input.realmId].dailyRate;
 
-        // update balances and execute ERC-20 transfer, calling transferFrom
-        // last to prevent any malicious erc-20 from causing re-entrancy issues
+        // update balances and execute ERC-20 transfer
         data.balance -= toClaim;
         data.lastClaimAt = claimAt;
         realmConfig[input.realmId].token.transfer(msg.sender, toClaim);
