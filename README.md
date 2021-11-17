@@ -55,6 +55,8 @@ yarn deploy --network ropsten
 
 This will output the deployed contract address in the console.
 
+### Verification
+
 Verify on Etherscan, using the contract address from the previous step.
 
 ```
@@ -69,13 +71,21 @@ If you are verifying for `polygon` or `mumbai` networks, set the `POLYGON` env v
 POLYGON=1 yarn verify --network polygon $CONTRACT_ADDRESS
 ```
 
+If you are verifying for the `arbitrum` or `arbitrum-rinkeby` network, set the `ARBITRUM` env var:
+
+```
+ARBITRUM=1 yarn verify --network arbitrum $CONTRACT_ADDRESS
+```
+
 If you are verifying for the `fantom` network, set the `FANTOM` env var:
 
 ```
 FANTOM=1 yarn verify --network fantom $CONTRACT_ADDRESS
 ```
 
-To deploy test fixtures and contracts (only needed for testnet):
+### Test Fixtures
+
+To deploy test fixtures and contracts (can help with testing):
 
 ```
 yarn deploy:fixtures --network ropsten

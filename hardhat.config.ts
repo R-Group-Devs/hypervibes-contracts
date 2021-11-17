@@ -30,6 +30,8 @@ if (process.env.POLYGON) {
   etherscanApiKey = process.env.POLYGONSCAN_API_KEY;
 } else if (process.env.FANTOM != null) {
   etherscanApiKey = process.env.FTMSCAN_API_KEY;
+} else if (process.env.ARBITRUM != null) {
+  etherscanApiKey = process.env.ARBISCAN_API_KEY;
 } else {
   etherscanApiKey = process.env.ETHERSCAN_API_KEY;
 }
@@ -50,10 +52,16 @@ const config: HardhatUserConfig = {
     polygon: { url: process.env.POLYGON_URL || "", accounts },
     fantom: { url: process.env.FANTOM_URL || "", accounts },
     xdai: { url: process.env.XDAI_URL || "", accounts },
+    arbitrum: { url: process.env.ARBITRUM_URL || "", accounts },
+
     ropsten: { url: process.env.ROPSTEN_URL || "", accounts },
     rinkeby: { url: process.env.RINKEBY_URL || "", accounts },
     goerli: { url: process.env.GOERLI_URL || "", accounts },
     mumbai: { url: process.env.MUMBAI_URL || "", accounts },
+    "arbitrum-rinkeby": {
+      url: process.env.ARBITRUM_RINKEBY_URL || "",
+      accounts,
+    },
   },
 
   gasReporter: {
