@@ -25,6 +25,15 @@ task("accounts", "Prints the list of accounts", async (taskArgs, hre) => {
 const accounts =
   process.env.PRIVATE_KEY !== undefined ? [process.env.PRIVATE_KEY] : [];
 
+let etherscanApiKey: string | undefined;
+if (process.env.POLYGON) {
+  etherscanApiKey = process.env.POLYGONSCAN_API_KEY;
+} else if (process.env.FANTOM != null) {
+  etherscanApiKey = process.env.FTMSCAN_API_KEY;
+} else {
+  etherscanApiKey = process.env.ETHERSCAN_API_KEY;
+}
+
 const config: HardhatUserConfig = {
   solidity: {
     version: "0.8.4",
@@ -37,13 +46,14 @@ const config: HardhatUserConfig = {
   },
 
   networks: {
+    eth: { url: process.env.ETH_URL || "", accounts },
+    polygon: { url: process.env.POLYGON_URL || "", accounts },
+    fantom: { url: process.env.FANTOM_URL || "", accounts },
+    xdai: { url: process.env.XDAI_URL || "", accounts },
     ropsten: { url: process.env.ROPSTEN_URL || "", accounts },
     rinkeby: { url: process.env.RINKEBY_URL || "", accounts },
     goerli: { url: process.env.GOERLI_URL || "", accounts },
-    eth: { url: process.env.ETH_URL || "", accounts },
     mumbai: { url: process.env.MUMBAI_URL || "", accounts },
-    polygon: { url: process.env.POLYGON_URL || "", accounts },
-    xdai: { url: process.env.XDAI_URL || "", accounts },
   },
 
   gasReporter: {
@@ -51,11 +61,7 @@ const config: HardhatUserConfig = {
     currency: "USD",
   },
 
-  etherscan: {
-    apiKey: process.env.POLYGON
-      ? process.env.POLYGONSCAN_API_KEY
-      : process.env.ETHERSCAN_API_KEY,
-  },
+  etherscan: { apiKey: etherscanApiKey },
 };
 
 export default config;

@@ -69,6 +69,12 @@ If you are verifying for `polygon` or `mumbai` networks, set the `POLYGON` env v
 POLYGON=1 yarn verify --network polygon $CONTRACT_ADDRESS
 ```
 
+If you are verifying for the `fantom` network, set the `FANTOM` env var:
+
+```
+FANTOM=1 yarn verify --network fantom $CONTRACT_ADDRESS
+```
+
 To deploy test fixtures and contracts (only needed for testnet):
 
 ```
