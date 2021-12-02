@@ -12,7 +12,7 @@ contract MockERC20 is ERC20 {
 }
 
 contract Mock4DecERC20 is ERC20 {
-    constructor() ERC20("MockERC20", "TEST") {}
+    constructor() ERC20("Mock4DecERC20", "TEST4") {}
 
     function mint(uint256 amount) external {
         _mint(_msgSender(), amount);
