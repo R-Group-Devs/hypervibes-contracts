@@ -10,3 +10,15 @@ contract MockERC20 is ERC20 {
         _mint(_msgSender(), amount);
     }
 }
+
+contract Mock4DecERC20 is ERC20 {
+    constructor() ERC20("MockERC20", "TEST") {}
+
+    function mint(uint256 amount) external {
+        _mint(_msgSender(), amount);
+    }
+
+    function decimals() override public pure returns (uint8) {
+        return 4;
+    }
+}
